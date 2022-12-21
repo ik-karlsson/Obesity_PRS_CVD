@@ -8,7 +8,7 @@ Created by Ida Karlsson (IK)
 Department of Medical Epidemiology and Biostatistics (MEB), Karolinska Institutet, Stockholm
 
    	Created: 	20220214 by Ida Karlsson (IK)
- 	Updated: 	20221021 by IK - use updated data after removing those <40 (only affecting midlife analyses)
+ 	Updated: 	20221021 by IK and Elsa Ojalehto - use updated data after removing those <40 (only affecting midlife analyses)
 								 and refining the studypop 	
 				20221212 by IK - use updated data including those <60 at end of follow-up (based on rev comments)
 								 Affects only midlife analyses, but also changing the descriptives to only
