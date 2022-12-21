@@ -1,0 +1,1107 @@
+5254  /****************************************************************************************
+5254! *******
+5255  Name: GPdisc_CVD_STR_adata_20220214
+5256  Purpose: Combine data for analysis of the association between BMI and CVD, by PRS, in the
+5256!  STR
+5257
+5258  Study: SfoEpi project: Study how genetic predisposition to higher BMI/WHR influence the
+5258! association
+5259  between BMI/WHR and CVD
+5260
+5261  Created by Ida Karlsson (IK)
+5262  Department of Medical Epidemiology and Biostatistics (MEB), Karolinska Institutet,
+5262! Stockholm
+5263
+5264      Created:    20220214 by Ida Karlsson (IK)
+5265      Updated:    20221021 by IK - Add first available measure (regardless of
+5265! mid/late-life);
+5266                                   Include only those 40 or older at BMI measure; drop WHR
+5267                  20221212 by IK - Include also those <60 at end of follow-up (based on
+5267! rev. comments)
+5268
+5269      Steps:      1. Libnames
+5270                  2. PRS data - defines the study population
+5271                  3. CVD
+5272                  4. Covariates and additional variables
+5273                  5. BMI data (long format)
+5274                  6. Save the data
+5275
+5276
+5277      SAS v9.4
+5278
+5279  *****************************************************************************************
+5279! *******/
+5280  /**************************************** 1. Libnames
+5280! ******************************************/
+5281  /****************************************************************************************
+5281! *******/
+5282
+5283  libname GPdisc 'P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH';
+NOTE: Libref GPDISC was successfully assigned as follows:
+      Engine:        V9
+      Physical Name: P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH
+5284  libname bmi 'P:\Dementia_IK\BMI\BMI_data\Data\Derived_data';
+NOTE: Libref BMI was successfully assigned as follows:
+      Engine:        V9
+      Physical Name: P:\Dementia_IK\BMI\BMI_data\Data\Derived_data
+5285  libname s2 'P:\Dementia_IK\Archived\PhD project\Study II -
+5285! CHD_genes_dem\Data\Derived_data';
+NOTE: Libref S2 was successfully assigned as follows:
+      Engine:        V9
+      Physical Name: P:\Dementia_IK\Archived\PhD project\Study II -
+      CHD_genes_dem\Data\Derived_data
+5286  libname aim1 'P:\Dementia_IK\FORTE_postdoc\Aim_1\Data\Derived_data\Aim_1a\GHOST';
+NOTE: Libref AIM1 was successfully assigned as follows:
+      Engine:        V9
+      Physical Name: P:\Dementia_IK\FORTE_postdoc\Aim_1\Data\Derived_data\Aim_1a\GHOST
+5287
+5288  /****************************************************************************************
+5288! *******/
+5289  /********************** 2. Read in PRS data to define the study population
+5289! *********************/
+5290  /****************************************************************************************
+5290! *******/
+5291
+5292  PROC IMPORT OUT= WORK.PRS
+5293              DATAFILE=
+5293! "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt"
+5294              DBMS=TAB REPLACE;
+5295       GETNAMES=YES;
+5296       DATAROW=2;
+5297       GUESSINGROWS=5000;
+5298  RUN;
+
+5299   /**********************************************************************
+5300   *   PRODUCT:   SAS
+5301   *   VERSION:   9.4
+5302   *   CREATOR:   External File Interface
+5303   *   DATE:      18DEC22
+5304   *   DESC:      Generated SAS Datastep Code
+5305   *   TEMPLATE SOURCE:  (None Specified.)
+5306   ***********************************************************************/
+5307      data WORK.PRS    ;
+5308      %let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+5309      infile 'P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt'
+5309! delimiter='09'x MISSOVER DSD lrecl=32767 firstobs=2 ;
+5310         informat twinnr best32. ;
+5311         informat study $8. ;
+5312         informat PRS_BMI_PCadj best32. ;
+5313         informat PRS_WHR_PCadj best32. ;
+5314         informat PRS_WHRadjBMI_PCadj best32. ;
+5315         format twinnr best12. ;
+5316         format study $8. ;
+5317         format PRS_BMI_PCadj best12. ;
+5318         format PRS_WHR_PCadj best12. ;
+5319         format PRS_WHRadjBMI_PCadj best12. ;
+5320      input
+5321                  twinnr
+5322                  study  $
+5323                  PRS_BMI_PCadj
+5324                  PRS_WHR_PCadj
+5325                  PRS_WHRadjBMI_PCadj
+5326      ;
+5327      if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+5328      run;
+
+NOTE: The infile 'P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt'
+      is:
+      Filename=P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt,
+      RECFM=V,LRECL=32767,File Size (bytes)=1417278,
+      Last Modified=14 February 2022 13:04:32,
+      Create Time=13 February 2022 19:28:56
+
+NOTE: 19361 records were read from the infile
+      'P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt'.
+      The minimum record length was 62.
+      The maximum record length was 78.
+NOTE: The data set WORK.PRS has 19361 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.04 seconds
+
+
+19361 rows created in WORK.PRS from
+P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\PRS_BMI_WHR_adjPC_20220213.txt.
+
+
+
+NOTE: WORK.PRS data set was successfully created.
+NOTE: The data set WORK.PRS has 19361 observations and 5 variables.
+NOTE: PROCEDURE IMPORT used (Total process time):
+      real time           1.04 seconds
+      cpu time            0.92 seconds
+
+
+5329  *n=19361;
+5330
+5331  proc sort data=prs;
+5332      by twinnr;
+5333  run;
+
+NOTE: There were 19361 observations read from the data set WORK.PRS.
+NOTE: The data set WORK.PRS has 19361 observations and 5 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5334
+5335  proc freq data=prs;
+5336      table study;
+5337  run;
+
+NOTE: There were 19361 observations read from the data set WORK.PRS.
+NOTE: PROCEDURE FREQ used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5338  /*                                                    Cumulative    Cumulative
+5339                   study       Frequency     Percent     Frequency      Percent
+5340                   ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒE
+5341                   GOSH            2052       10.60          2052        10.60
+5342                   SALT-Y          6403       33.07          8455        43.67
+5343                   TwinGene       10906       56.33         19361       100.00 */
+5344
+5345  /****************************************************************************************
+5345! *******/
+5346  /**************************************** 3. CVD data
+5346! ******************************************/
+5347  /****************************************************************************************
+5347! *******/
+5348  PROC IMPORT OUT= WORK.cvd
+5349              DATAFILE= "P:\Dementia_IK\Various data across and outside
+5349! studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt"
+5350              DBMS=TAB REPLACE;
+5351       GETNAMES=YES;
+5352       DATAROW=2;
+5353       GUESSINGROWS=5000;
+5354  RUN;
+
+5355   /**********************************************************************
+5356   *   PRODUCT:   SAS
+5357   *   VERSION:   9.4
+5358   *   CREATOR:   External File Interface
+5359   *   DATE:      18DEC22
+5360   *   DESC:      Generated SAS Datastep Code
+5361   *   TEMPLATE SOURCE:  (None Specified.)
+5362   ***********************************************************************/
+5363      data WORK.CVD    ;
+5364      %let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+5365      infile 'P:\Dementia_IK\Various data across and outside
+5365! studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt' delimiter='09'x MISSOVER
+5365! DSD lrecl=32767 firstobs=2 ;
+5366         informat twinnr best32. ;
+5367         informat pairid best32. ;
+5368         informat reg_CVD best32. ;
+5369         informat reg_CVDh best32. ;
+5370         informat reg_AP best32. ;
+5371         informat reg_APh best32. ;
+5372         informat reg_ATS best32. ;
+5373         informat reg_ATSh best32. ;
+5374         informat reg_CLD best32. ;
+5375         informat reg_CLDh best32. ;
+5376         informat reg_IHD best32. ;
+5377         informat reg_IHDh best32. ;
+5378         informat reg_MI best32. ;
+5379         informat reg_MIh best32. ;
+5380         informat reg_CVD_date DATE9. ;
+5381         informat reg_CVD_age best32. ;
+5382         informat reg_CVD_source $7. ;
+5383         informat reg_STROKE best32. ;
+5384         informat reg_STROKEh best32. ;
+5385         informat reg_HeSTROKE best32. ;
+5386         informat reg_HeSTROKEh best32. ;
+5387         informat reg_IsSTROKE best32. ;
+5388         informat reg_IsSTROKEh best32. ;
+5389         informat reg_STROKE_date DATE9. ;
+5390         informat reg_STROKE_age best32. ;
+5391         informat reg_STROKE_source $7. ;
+5392         informat npr_CVD best32. ;
+5393         informat npr_CVDh best32. ;
+5394         informat npr_first_admage_CVD best32. ;
+5395         informat npr_first_admage_CVDh best32. ;
+5396         informat npr_first_admdate_CVD DATE9. ;
+5397         informat npr_first_admdate_CVDh DATE9. ;
+5398         informat npr_AP best32. ;
+5399         informat npr_APh best32. ;
+5400         informat npr_first_admage_AP best32. ;
+5401         informat npr_first_admage_APh best32. ;
+5402         informat npr_first_admdate_AP DATE9. ;
+5403         informat npr_first_admdate_APh DATE9. ;
+5404         informat npr_ATS best32. ;
+5405         informat npr_ATSh best32. ;
+5406         informat npr_first_admage_ATS best32. ;
+5407         informat npr_first_admage_ATSh best32. ;
+5408         informat npr_first_admdate_ATS DATE9. ;
+5409         informat npr_first_admdate_ATSh DATE9. ;
+5410         informat npr_CLD best32. ;
+5411         informat npr_CLDh best32. ;
+5412         informat npr_first_admage_CLD best32. ;
+5413         informat npr_first_admage_CLDh best32. ;
+5414         informat npr_first_admdate_CLD DATE9. ;
+5415         informat npr_first_admdate_CLDh DATE9. ;
+5416         informat npr_IHD best32. ;
+5417         informat npr_IHDh best32. ;
+5418         informat npr_first_admage_IHD best32. ;
+5419         informat npr_first_admage_IHDh best32. ;
+5420         informat npr_first_admdate_IHD DATE9. ;
+5421         informat npr_first_admdate_IHDh DATE9. ;
+5422         informat npr_MI best32. ;
+5423         informat npr_MIh best32. ;
+5424         informat npr_first_admage_MI best32. ;
+5425         informat npr_first_admage_MIh best32. ;
+5426         informat npr_first_admdate_MI DATE9. ;
+5427         informat npr_first_admdate_MIh DATE9. ;
+5428         informat npr_PTCA best32. ;
+5429         informat npr_first_admage_PTCA best32. ;
+5430         informat npr_first_admdate_PTCA DATE9. ;
+5431         informat npr_CABG best32. ;
+5432         informat npr_first_admage_CABG best32. ;
+5433         informat npr_first_admdate_CABG DATE9. ;
+5434         informat npr_nrecs_CVD best32. ;
+5435         informat npr_nrecs_CVDh best32. ;
+5436         informat npr_nrecs_AP best32. ;
+5437         informat npr_nrecs_APh best32. ;
+5438         informat npr_nrecs_ATS best32. ;
+5439         informat npr_nrecs_ATSh best32. ;
+5440         informat npr_nrecs_CLD best32. ;
+5441         informat npr_nrecs_CLDh best32. ;
+5442         informat npr_nrecs_IHD best32. ;
+5443         informat npr_nrecs_IHDh best32. ;
+5444         informat npr_nrecs_MI best32. ;
+5445         informat npr_nrecs_MIh best32. ;
+5446         informat npr_nrecs_PTCA best32. ;
+5447         informat npr_nrecs_CABG best32. ;
+5448         informat npr_first_CVD_dxcode $6. ;
+5449         informat npr_first_CVD_dxnr $5. ;
+5450         informat npr_first_dxlist $59. ;
+5451         informat npr_STROKE best32. ;
+5452         informat npr_STROKEh best32. ;
+5453         informat npr_HeSTROKE best32. ;
+5454         informat npr_HeSTROKEh best32. ;
+5455         informat npr_IsSTROKE best32. ;
+5456         informat npr_IsSTROKEh best32. ;
+5457         informat npr_first_admage_STROKE best32. ;
+5458         informat npr_first_admage_STROKEh best32. ;
+5459         informat npr_first_admage_HeSTROKE best32. ;
+5460         informat npr_first_admage_HeSTROKEh best32. ;
+5461         informat npr_first_admage_IsSTROKE best32. ;
+5462         informat npr_first_admage_IsSTROKEh best32. ;
+5463         informat npr_first_admdate_STROKE DATE9. ;
+5464         informat npr_first_admdate_STROKEh DATE9. ;
+5465         informat npr_first_admdate_HeSTROKE DATE9. ;
+5466         informat npr_first_admdate_HeSTROKEh DATE9. ;
+5467         informat npr_first_admdate_IsSTROKE DATE9. ;
+5468         informat npr_first_admdate_IsSTROKEh DATE9. ;
+5469         informat npr_nrecs_STROKE best32. ;
+5470         informat npr_nrecs_STROKEh best32. ;
+5471         informat npr_nrecs_HeSTROKE best32. ;
+5472         informat npr_nrecs_HeSTROKEh best32. ;
+5473         informat npr_nrecs_IsSTROKE best32. ;
+5474         informat npr_nrecs_IsSTROKEh best32. ;
+5475         informat cdr_CVD best32. ;
+5476         informat cdr_CVDh $1. ;
+5477         informat cdr_AP best32. ;
+5478         informat cdr_APh best32. ;
+5479         informat cdr_ATS best32. ;
+5480         informat cdr_ATSh best32. ;
+5481         informat cdr_CLD best32. ;
+5482         informat cdr_CLDh best32. ;
+5483         informat cdr_IHD best32. ;
+5484         informat cdr_IHDh best32. ;
+5485         informat cdr_MI best32. ;
+5486         informat cdr_MIh best32. ;
+5487         informat cdr_STROKE best32. ;
+5488         informat cdr_STROKEh best32. ;
+5489         informat cdr_HeSTROKE best32. ;
+5490         informat cdr_HeSTROKEh best32. ;
+5491         informat cdr_IsSTROKE best32. ;
+5492         informat cdr_IsSTROKEh best32. ;
+5493         informat cdr_dateofdeath DATE9. ;
+5494         informat cdr_agedeath best32. ;
+5495         informat cdr_CVD_dxcode $5. ;
+5496         informat cdr_CVD_dxnr $8. ;
+5497         format twinnr best12. ;
+5498         format pairid best12. ;
+5499         format reg_CVD best12. ;
+5500         format reg_CVDh best12. ;
+5501         format reg_AP best12. ;
+5502         format reg_APh best12. ;
+5503         format reg_ATS best12. ;
+5504         format reg_ATSh best12. ;
+5505         format reg_CLD best12. ;
+5506         format reg_CLDh best12. ;
+5507         format reg_IHD best12. ;
+5508         format reg_IHDh best12. ;
+5509         format reg_MI best12. ;
+5510         format reg_MIh best12. ;
+5511         format reg_CVD_date DATE9. ;
+5512         format reg_CVD_age best12. ;
+5513         format reg_CVD_source $7. ;
+5514         format reg_STROKE best12. ;
+5515         format reg_STROKEh best12. ;
+5516         format reg_HeSTROKE best12. ;
+5517         format reg_HeSTROKEh best12. ;
+5518         format reg_IsSTROKE best12. ;
+5519         format reg_IsSTROKEh best12. ;
+5520         format reg_STROKE_date DATE9. ;
+5521         format reg_STROKE_age best12. ;
+5522         format reg_STROKE_source $7. ;
+5523         format npr_CVD best12. ;
+5524         format npr_CVDh best12. ;
+5525         format npr_first_admage_CVD best12. ;
+5526         format npr_first_admage_CVDh best12. ;
+5527         format npr_first_admdate_CVD DATE9. ;
+5528         format npr_first_admdate_CVDh DATE9. ;
+5529         format npr_AP best12. ;
+5530         format npr_APh best12. ;
+5531         format npr_first_admage_AP best12. ;
+5532         format npr_first_admage_APh best12. ;
+5533         format npr_first_admdate_AP DATE9. ;
+5534         format npr_first_admdate_APh DATE9. ;
+5535         format npr_ATS best12. ;
+5536         format npr_ATSh best12. ;
+5537         format npr_first_admage_ATS best12. ;
+5538         format npr_first_admage_ATSh best12. ;
+5539         format npr_first_admdate_ATS DATE9. ;
+5540         format npr_first_admdate_ATSh DATE9. ;
+5541         format npr_CLD best12. ;
+5542         format npr_CLDh best12. ;
+5543         format npr_first_admage_CLD best12. ;
+5544         format npr_first_admage_CLDh best12. ;
+5545         format npr_first_admdate_CLD DATE9. ;
+5546         format npr_first_admdate_CLDh DATE9. ;
+5547         format npr_IHD best12. ;
+5548         format npr_IHDh best12. ;
+5549         format npr_first_admage_IHD best12. ;
+5550         format npr_first_admage_IHDh best12. ;
+5551         format npr_first_admdate_IHD DATE9. ;
+5552         format npr_first_admdate_IHDh DATE9. ;
+5553         format npr_MI best12. ;
+5554         format npr_MIh best12. ;
+5555         format npr_first_admage_MI best12. ;
+5556         format npr_first_admage_MIh best12. ;
+5557         format npr_first_admdate_MI DATE9. ;
+5558         format npr_first_admdate_MIh DATE9. ;
+5559         format npr_PTCA best12. ;
+5560         format npr_first_admage_PTCA best12. ;
+5561         format npr_first_admdate_PTCA DATE9. ;
+5562         format npr_CABG best12. ;
+5563         format npr_first_admage_CABG best12. ;
+5564         format npr_first_admdate_CABG DATE9. ;
+5565         format npr_nrecs_CVD best12. ;
+5566         format npr_nrecs_CVDh best12. ;
+5567         format npr_nrecs_AP best12. ;
+5568         format npr_nrecs_APh best12. ;
+5569         format npr_nrecs_ATS best12. ;
+5570         format npr_nrecs_ATSh best12. ;
+5571         format npr_nrecs_CLD best12. ;
+5572         format npr_nrecs_CLDh best12. ;
+5573         format npr_nrecs_IHD best12. ;
+5574         format npr_nrecs_IHDh best12. ;
+5575         format npr_nrecs_MI best12. ;
+5576         format npr_nrecs_MIh best12. ;
+5577         format npr_nrecs_PTCA best12. ;
+5578         format npr_nrecs_CABG best12. ;
+5579         format npr_first_CVD_dxcode $6. ;
+5580         format npr_first_CVD_dxnr $5. ;
+5581         format npr_first_dxlist $59. ;
+5582         format npr_STROKE best12. ;
+5583         format npr_STROKEh best12. ;
+5584         format npr_HeSTROKE best12. ;
+5585         format npr_HeSTROKEh best12. ;
+5586         format npr_IsSTROKE best12. ;
+5587         format npr_IsSTROKEh best12. ;
+5588         format npr_first_admage_STROKE best12. ;
+5589         format npr_first_admage_STROKEh best12. ;
+5590         format npr_first_admage_HeSTROKE best12. ;
+5591         format npr_first_admage_HeSTROKEh best12. ;
+5592         format npr_first_admage_IsSTROKE best12. ;
+5593         format npr_first_admage_IsSTROKEh best12. ;
+5594         format npr_first_admdate_STROKE DATE9. ;
+5595         format npr_first_admdate_STROKEh DATE9. ;
+5596         format npr_first_admdate_HeSTROKE DATE9. ;
+5597         format npr_first_admdate_HeSTROKEh DATE9. ;
+5598         format npr_first_admdate_IsSTROKE DATE9. ;
+5599         format npr_first_admdate_IsSTROKEh DATE9. ;
+5600         format npr_nrecs_STROKE best12. ;
+5601         format npr_nrecs_STROKEh best12. ;
+5602         format npr_nrecs_HeSTROKE best12. ;
+5603         format npr_nrecs_HeSTROKEh best12. ;
+5604         format npr_nrecs_IsSTROKE best12. ;
+5605         format npr_nrecs_IsSTROKEh best12. ;
+5606         format cdr_CVD best12. ;
+5607         format cdr_CVDh $1. ;
+5608         format cdr_AP best12. ;
+5609         format cdr_APh best12. ;
+5610         format cdr_ATS best12. ;
+5611         format cdr_ATSh best12. ;
+5612         format cdr_CLD best12. ;
+5613         format cdr_CLDh best12. ;
+5614         format cdr_IHD best12. ;
+5615         format cdr_IHDh best12. ;
+5616         format cdr_MI best12. ;
+5617         format cdr_MIh best12. ;
+5618         format cdr_STROKE best12. ;
+5619         format cdr_STROKEh best12. ;
+5620         format cdr_HeSTROKE best12. ;
+5621         format cdr_HeSTROKEh best12. ;
+5622         format cdr_IsSTROKE best12. ;
+5623         format cdr_IsSTROKEh best12. ;
+5624         format cdr_dateofdeath DATE9. ;
+5625         format cdr_agedeath best12. ;
+5626         format cdr_CVD_dxcode $5. ;
+5627         format cdr_CVD_dxnr $8. ;
+5628      input
+5629                  twinnr
+5630                  pairid
+5631                  reg_CVD
+5632                  reg_CVDh
+5633                  reg_AP
+5634                  reg_APh
+5635                  reg_ATS
+5636                  reg_ATSh
+5637                  reg_CLD
+5638                  reg_CLDh
+5639                  reg_IHD
+5640                  reg_IHDh
+5641                  reg_MI
+5642                  reg_MIh
+5643                  reg_CVD_date
+5644                  reg_CVD_age
+5645                  reg_CVD_source  $
+5646                  reg_STROKE
+5647                  reg_STROKEh
+5648                  reg_HeSTROKE
+5649                  reg_HeSTROKEh
+5650                  reg_IsSTROKE
+5651                  reg_IsSTROKEh
+5652                  reg_STROKE_date
+5653                  reg_STROKE_age
+5654                  reg_STROKE_source  $
+5655                  npr_CVD
+5656                  npr_CVDh
+5657                  npr_first_admage_CVD
+5658                  npr_first_admage_CVDh
+5659                  npr_first_admdate_CVD
+5660                  npr_first_admdate_CVDh
+5661                  npr_AP
+5662                  npr_APh
+5663                  npr_first_admage_AP
+5664                  npr_first_admage_APh
+5665                  npr_first_admdate_AP
+5666                  npr_first_admdate_APh
+5667                  npr_ATS
+5668                  npr_ATSh
+5669                  npr_first_admage_ATS
+5670                  npr_first_admage_ATSh
+5671                  npr_first_admdate_ATS
+5672                  npr_first_admdate_ATSh
+5673                  npr_CLD
+5674                  npr_CLDh
+5675                  npr_first_admage_CLD
+5676                  npr_first_admage_CLDh
+5677                  npr_first_admdate_CLD
+5678                  npr_first_admdate_CLDh
+5679                  npr_IHD
+5680                  npr_IHDh
+5681                  npr_first_admage_IHD
+5682                  npr_first_admage_IHDh
+5683                  npr_first_admdate_IHD
+5684                  npr_first_admdate_IHDh
+5685                  npr_MI
+5686                  npr_MIh
+5687                  npr_first_admage_MI
+5688                  npr_first_admage_MIh
+5689                  npr_first_admdate_MI
+5690                  npr_first_admdate_MIh
+5691                  npr_PTCA
+5692                  npr_first_admage_PTCA
+5693                  npr_first_admdate_PTCA
+5694                  npr_CABG
+5695                  npr_first_admage_CABG
+5696                  npr_first_admdate_CABG
+5697                  npr_nrecs_CVD
+5698                  npr_nrecs_CVDh
+5699                  npr_nrecs_AP
+5700                  npr_nrecs_APh
+5701                  npr_nrecs_ATS
+5702                  npr_nrecs_ATSh
+5703                  npr_nrecs_CLD
+5704                  npr_nrecs_CLDh
+5705                  npr_nrecs_IHD
+5706                  npr_nrecs_IHDh
+5707                  npr_nrecs_MI
+5708                  npr_nrecs_MIh
+5709                  npr_nrecs_PTCA
+5710                  npr_nrecs_CABG
+5711                  npr_first_CVD_dxcode  $
+5712                  npr_first_CVD_dxnr  $
+5713                  npr_first_dxlist  $
+5714                  npr_STROKE
+5715                  npr_STROKEh
+5716                  npr_HeSTROKE
+5717                  npr_HeSTROKEh
+5718                  npr_IsSTROKE
+5719                  npr_IsSTROKEh
+5720                  npr_first_admage_STROKE
+5721                  npr_first_admage_STROKEh
+5722                  npr_first_admage_HeSTROKE
+5723                  npr_first_admage_HeSTROKEh
+5724                  npr_first_admage_IsSTROKE
+5725                  npr_first_admage_IsSTROKEh
+5726                  npr_first_admdate_STROKE
+5727                  npr_first_admdate_STROKEh
+5728                  npr_first_admdate_HeSTROKE
+5729                  npr_first_admdate_HeSTROKEh
+5730                  npr_first_admdate_IsSTROKE
+5731                  npr_first_admdate_IsSTROKEh
+5732                  npr_nrecs_STROKE
+5733                  npr_nrecs_STROKEh
+5734                  npr_nrecs_HeSTROKE
+5735                  npr_nrecs_HeSTROKEh
+5736                  npr_nrecs_IsSTROKE
+5737                  npr_nrecs_IsSTROKEh
+5738                  cdr_CVD
+5739                  cdr_CVDh  $
+5740                  cdr_AP
+5741                  cdr_APh
+5742                  cdr_ATS
+5743                  cdr_ATSh
+5744                  cdr_CLD
+5745                  cdr_CLDh
+5746                  cdr_IHD
+5747                  cdr_IHDh
+5748                  cdr_MI
+5749                  cdr_MIh
+5750                  cdr_STROKE
+5751                  cdr_STROKEh
+5752                  cdr_HeSTROKE
+5753                  cdr_HeSTROKEh
+5754                  cdr_IsSTROKE
+5755                  cdr_IsSTROKEh
+5756                  cdr_dateofdeath
+5757                  cdr_agedeath
+5758                  cdr_CVD_dxcode  $
+5759                  cdr_CVD_dxnr  $
+5760      ;
+5761      if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+5762      run;
+
+NOTE: The infile 'P:\Dementia_IK\Various data across and outside
+      studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt' is:
+
+      Filename=P:\Dementia_IK\Various data across and outside
+      studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt,
+      RECFM=V,LRECL=32767,File Size (bytes)=7460226,
+      Last Modified=07 May 2020 21:11:01,
+      Create Time=07 May 2020 21:11:01
+
+NOTE: 29482 records were read from the infile 'P:\Dementia_IK\Various data across and outside
+      studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt'.
+      The minimum record length was 174.
+      The maximum record length was 505.
+NOTE: The data set WORK.CVD has 29482 observations and 131 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.48 seconds
+      cpu time            0.46 seconds
+
+
+29482 rows created in WORK.CVD from P:\Dementia_IK\Various data across and outside
+studies\Register_diagnoses\Data\CVD_REGs_STRlink_20200422.txt.
+
+
+
+NOTE: WORK.CVD data set was successfully created.
+NOTE: The data set WORK.CVD has 29482 observations and 131 variables.
+NOTE: PROCEDURE IMPORT used (Total process time):
+      real time           6.78 seconds
+      cpu time            6.59 seconds
+
+
+5763
+5764  data prs_cvd;
+5765      merge   cvd (in=a keep= twinnr reg_cvd reg_cvd_age reg_stroke reg_stroke_age)
+5766              prs (in=b)
+5767              stradmin.V_REQUESTED_PERSONS_TWINNR_2018 (in=c keep=twinnr) ;
+5768      by twinnr;
+5769      if b and c;
+5770      if reg_cvd=. then reg_cvd=0;
+5771      if reg_stroke=. then reg_stroke=0;
+5772
+5773      reg_cvd_age=int(reg_cvd_Age);
+5774      reg_stroke_age=int(reg_stroke_age);
+5775
+5776      reg_CVDany=max(reg_CVD, reg_stroke);
+5777      if reg_cvd=1 or reg_stroke=1 then reg_CVDany_age=min(reg_cvd_age, reg_stroke_age);
+5778      rename  reg_CVD=reg_CVDns
+5779              reg_CVD_age=reg_CVDns_age;
+5780  run;
+
+NOTE: Missing values were generated as a result of performing an operation on missing values.
+      Each place is given by: (Number of times) at (Line):(Column).
+      15580 at 5773:17   17554 at 5774:20
+NOTE: There were 29482 observations read from the data set WORK.CVD.
+NOTE: There were 19361 observations read from the data set WORK.PRS.
+NOTE: There were 150161 observations read from the data set
+      STRADMIN.V_REQUESTED_PERSONS_TWINNR_2018.
+NOTE: The data set WORK.PRS_CVD has 19311 observations and 11 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.23 seconds
+      cpu time            0.18 seconds
+
+
+5781  *n=19311 (n=50 missing register data);
+5782
+5783  proc means data=prs_Cvd;
+5784      var reg_CVDany_age reg_CVDns_age reg_stroke_age;
+5785  run;
+
+NOTE: There were 19311 observations read from the data set WORK.PRS_CVD.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5786
+5787  proc freq data=prs_cvd;
+5788      tables reg_CVDany*(reg_CVDns reg_stroke)/missprint norow nocol nopercent;
+5789  run;
+
+NOTE: There were 19311 observations read from the data set WORK.PRS_CVD.
+NOTE: PROCEDURE FREQ used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5790
+5791  /****************************************************************************************
+5791! *******/
+5792  /**************************** 4. Covariates and additional variables
+5792! ***************************/
+5793  /****************************************************************************************
+5793! *******/
+5794
+5795  /* Birthyear, age at death, sex, and zygosity from STR */
+5796  data cov1;
+5797      merge   stradmin.person_info (in=a keep=twinnr pairid tvab sex birthdate vitalstatus
+5797! deathdate deathyr deathmon deathday)
+5798              stradmin.zygosity (in=b keep=twinnr zygosity)
+5799              prs_cvd (in=c);
+5800      by twinnr;
+5801      if a and c;
+5802
+5803      /***** Calculate age at death *****/
+5804      /* NOTE! Recode all who died >2016 as alive */
+5805      if deathyr gt 2016 then do;
+5806          deathdate=' ';
+5807          deathyr=' ';
+5808          deathmon=' ';
+5809          deathday=' ';
+5810          vitalstatus=0;
+5811      end;
+5812      /* Convert birthdate to date format */
+5813      /* NOTE! Gives error message for three twins with birthdate=1000000 */
+5814      /* They are kept as we have GOSH info (this is dealt with in the dementia file), but
+5814! birthdate left as is */
+5815      bdate=input(put(birthdate,8.),yymmdd8.);
+5816      /* 1 twin is dead, but without a date. Assigning date of death from CDR. */
+5817      if twinnr=[edited out for GitHub/IK] then do;
+5818          deathdate='20060825';
+5819          deathyr='2006';
+5820          deathmon='08';
+5821          deathday='25';
+5822      end;
+5823      /* Deal with faulty deathdates, imputing to last day of month/year if missing */
+5824      if deathdate ne ' ' then do;
+5825
+5826          if deathmon in(' ', '00') then deathmon='12';
+5827          if deathday in (' ', '00') then do;
+5828              if deathmon in ('01', '03', '05', '07', '08', '10', '12') then deathday='31';
+5829              else if deathmon in ('04', '06', '09', '11') then deathday='30';
+5830              else if deathmon='02' then deathday='28';
+5831          end;
+5832          /* Create deathdate in date format */
+5833          ddate=MDY(deathmon, deathday, deathyr);
+5834          /* Calculate age at death */
+5835          age_death=int(YRDIF(bdate, ddate, 'actual'));
+5836      end;
+5837      /* Create last age as age at death or end of 2016 (register linkage) */
+5838      if age_death ne . then lastage=age_death;
+5839      else lastage=int(YRDIF(bdate, MDY(12,31,2016), 'actual'));
+5840
+5841      drop bdate ddate deathyr deathmon deathday;
+5842
+5843  run;
+
+NOTE: Character values have been converted to numeric values at the places given by:
+      (Line):(Column).
+      5805:8    5833:19   5833:29   5833:39
+NOTE: There were 217028 observations read from the data set STRADMIN.person_info.
+NOTE: There were 219170 observations read from the data set STRADMIN.zygosity.
+NOTE: There were 19311 observations read from the data set WORK.PRS_CVD.
+NOTE: The data set WORK.COV1 has 19292 observations and 20 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.70 seconds
+      cpu time            0.53 seconds
+
+
+5844  *n=19292 (n=19 not in person info. NOTE! Included as register info in flow-chart, same
+5844! interpretation);
+5845
+5846  /* DROPPED 20221212, after reviewer comments on 1st submission (Circulation)
+5847  Drop those <60 at lastage or <40 at CVD
+5848  data cov2;
+5849      set cov1;
+5850      if lastage ge 60;
+5851  run;
+5852  *n=18084 (n=1208 <60);
+5853
+5854  /* Education and smoking */
+5855  data cov3;
+5856      merge   cov1 (in=a)
+5857              GPdisc.educ_all_20220214 (in=b keep=twinnr educ)
+5858              aim1.smoking_GOSH_20190603 (in=c keep=twinnr STR_smoke);
+5859      by twinnr;
+5860      if a;
+5861      rename STR_smoke=smoke;
+5862  run;
+
+NOTE: There were 19292 observations read from the data set WORK.COV1.
+NOTE: There were 76604 observations read from the data set GPDISC.EDUC_ALL_20220214.
+NOTE: There were 70530 observations read from the data set AIM1.SMOKING_GOSH_20190603.
+NOTE: The data set WORK.COV3 has 19292 observations and 22 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.25 seconds
+      cpu time            0.04 seconds
+
+
+5863  proc freq data=cov3;
+5864      table educ smoke /missprint norow nocol nopercent;
+5865  run;
+
+NOTE: There were 19292 observations read from the data set WORK.COV3.
+NOTE: PROCEDURE FREQ used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5866  *n=198 misssing education, n=249 missing smoking;
+5867
+5868  /****************************************************************************************
+5868! *******/
+5869  /**************************************** 6. BMI data
+5869! ******************************************/
+5870  /****************************************************************************************
+5870! *******/
+5871  /* Select first measure, and the measure taken closest to age 50 and 75 */
+5872  /* NOTE! Adding age of CVD onset */
+5873  /* BMI */
+5874  data bmi_40 bmi_mid bmi_late;
+5875      merge    bmi.Bmi_data_long_20210510 (in=a)
+5876               cov3 (in=b keep=twinnr reg_CVDany_age reg_CVDany_age);
+5877      by twinnr;
+5878      if a and b and bmi ne .;
+5879      age=int(age);
+5880      if reg_CVDany_age ne . and (reg_CVDany_age le age) then prev=1;
+5881      ag50=abs((age+0.1)-50); /* Adding 0.1 to select the youngest, if two of equal length
+5881! before/after */
+5882      ag75=abs((age-0.1)-75); /* Subtracting 0.1 to select the oldest, if two of equal
+5882! length before/after */
+5883      if age ge 40 then output bmi_40;
+5884      if age ge 40 and age lt 65 then output bmi_mid;
+5885      else if age ge 65 then output bmi_late;
+5886  run;
+
+NOTE: There were 191092 observations read from the data set BMI.BMI_DATA_LONG_20210510.
+NOTE: There were 19292 observations read from the data set WORK.COV3.
+NOTE: The data set WORK.BMI_40 has 38982 observations and 11 variables.
+NOTE: The data set WORK.BMI_MID has 25346 observations and 11 variables.
+NOTE: The data set WORK.BMI_LATE has 13636 observations and 11 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.06 seconds
+
+
+5887
+5888  proc sort data=bmi_40;
+5889      by twinnr age;
+
+NOTE: There were 38982 observations read from the data set WORK.BMI_40.
+NOTE: The data set WORK.BMI_40 has 38982 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5890  proc sort data=bmi_40 nodupkey;
+5891      by twinnr;
+5892  run;
+
+NOTE: There were 38982 observations read from the data set WORK.BMI_40.
+NOTE: 20673 observations with duplicate key values were deleted.
+NOTE: The data set WORK.BMI_40 has 18309 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5893  *n=18309;
+5894
+5895  proc sort data=bmi_mid;
+5896      by twinnr prev ag50;
+
+NOTE: There were 25346 observations read from the data set WORK.BMI_MID.
+NOTE: The data set WORK.BMI_MID has 25346 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5897  proc sort data=bmi_mid nodupkey;
+5898      by twinnr;
+5899  run;
+
+NOTE: There were 25346 observations read from the data set WORK.BMI_MID.
+NOTE: 8899 observations with duplicate key values were deleted.
+NOTE: The data set WORK.BMI_MID has 16447 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5900  *n=16447;
+5901
+5902  proc sort data=bmi_late;
+5903      by twinnr ag75;
+
+NOTE: There were 13636 observations read from the data set WORK.BMI_LATE.
+NOTE: The data set WORK.BMI_LATE has 13636 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+
+
+5904  proc sort data=bmi_late nodupkey;
+5905      by twinnr;
+5906  run;
+
+NOTE: There were 13636 observations read from the data set WORK.BMI_LATE.
+NOTE: 6745 observations with duplicate key values were deleted.
+NOTE: The data set WORK.BMI_LATE has 6891 observations and 11 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5907  *n=6891;
+5908
+5909  /* Clean up */
+5910  data bmi_402;
+5911      set bmi_40;
+5912      BMI_age=int(age);
+5913      if bmi lt 18.5 then delete;
+5914      if bmi gt 55 then delete;
+5915      keep twinnr study bmi BMI_age;
+5916      rename  bmi=BMI
+5917              study=BMI_study;
+5918  run;
+
+NOTE: There were 18309 observations read from the data set WORK.BMI_40.
+NOTE: The data set WORK.BMI_402 has 18155 observations and 4 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5919  *n=18155;
+5920
+5921  data bmi_mid2;
+5922      set bmi_mid;
+5923      BMImid_age=int(age);
+5924      if bmi lt 18.5 then delete;
+5925      if bmi gt 55 then delete;
+5926      keep twinnr study bmi BMImid_age;
+5927      rename  bmi=BMImid
+5928              study=BMImid_study;
+5929  run;
+
+NOTE: There were 16447 observations read from the data set WORK.BMI_MID.
+NOTE: The data set WORK.BMI_MID2 has 16301 observations and 4 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5930  *n=16301;
+5931
+5932  data bmi_late2;
+5933      set bmi_late;
+5934      BMIlate_age=int(age);
+5935      if bmi lt 18.5 then delete;
+5936      if bmi gt 55 then delete;
+5937      keep twinnr study bmi BMIlate_age;
+5938      rename  bmi=BMIlate
+5939              study=BMIlate_study;
+5940  run;
+
+NOTE: There were 6891 observations read from the data set WORK.BMI_LATE.
+NOTE: The data set WORK.BMI_LATE2 has 6788 observations and 4 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+
+
+5941  *n=6788;
+5942
+5943  /* Add to the data */
+5944  data bmi_merge;
+5945      merge   cov3 (in=a)
+5946              BMI_402 (in=b)
+5947              BMI_mid2 (in=c)
+5948              BMI_late2 (in=d);
+5949      by twinnr;
+5950      if a and (b or c or d);
+5951  run;
+
+NOTE: There were 19292 observations read from the data set WORK.COV3.
+NOTE: There were 18155 observations read from the data set WORK.BMI_402.
+NOTE: There were 16301 observations read from the data set WORK.BMI_MID2.
+NOTE: There were 6788 observations read from the data set WORK.BMI_LATE2.
+NOTE: The data set WORK.BMI_MERGE has 18191 observations and 31 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+
+
+5952  *n=18191 (n=1101 with no measures taken, no measures at age >40, or BMI <18.5 or >55);
+5953
+5954  proc means data=bmi_merge;
+5955      var BMI_age BMImid_age BMIlate_age;
+5956  run;
+
+NOTE: There were 18191 observations read from the data set WORK.BMI_MERGE.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+
+
+5957
+5958  /*     Variable           N            Mean         Std Dev         Minimum
+5958! Maximum
+5959       ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+5960       BMI_age        18155      53.2916001       8.5575972      40.0000000      93.0000000
+5961       BMImid_age     16301      52.2126250       5.5101303      40.0000000      64.0000000
+5962       BMIlate_age     6788      72.0583382       5.1893695      65.0000000      94.0000000
+5963       ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+5964  */
+5965
+5966  /* Drop those prevalent at first measrue */
+5967  data bmi_inc;
+5968      set bmi_merge;
+5969      if reg_CVDany_age= . or (reg_CVDany_age gt BMI_age) or (reg_CVDany_age gt BMImid_age)
+5969!  or (reg_CVDany_age gt BMIlate_age);
+5970  run;
+
+NOTE: There were 18191 observations read from the data set WORK.BMI_MERGE.
+NOTE: The data set WORK.BMI_INC has 18022 observations and 31 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+
+
+5971  *n=18022 (n=169 prevalent);
+5972
+5973  /* Drop those missing covariates */
+5974  data bmi_nomiss;
+5975      set bmi_inc;
+5976      if educ ne . and smoke ne .;
+5977  run;
+
+NOTE: There were 18022 observations read from the data set WORK.BMI_INC.
+NOTE: The data set WORK.BMI_NOMISS has 17988 observations and 31 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+
+
+5978  *n=17988 (n=34 missing covariates);
+5979
+5980  /****************************************************************************************
+5980! *******/
+5981  /************************************* 7. Save the data
+5981! ****************************************/
+5982  /****************************************************************************************
+5982! *******/
+5983
+5984  data GPdisc.GPdisc_CVD_STR_adata_20221212;
+5985      retain  twinnr
+5986              pairid
+5987              tvab
+5988              sex
+5989              zygosity
+5990              birthdate
+5991              deathdate
+5992              age_death
+5993              vitalstatus
+5994              lastage
+5995              educ
+5996              smoke
+5997
+5998              reg_CVDany
+5999              reg_CVDns
+6000              reg_stroke
+6001              reg_CVDany_age
+6002              reg_CVDns_age
+6003              reg_stroke_age
+6004
+6005              BMI
+6006              BMI_age
+6007              BMI_study
+6008              BMImid
+6009              BMIlate
+6010              BMImid_age
+6011              BMIlate_age
+6012              BMImid_study
+6013              BMIlate_study
+6014
+6015              PRS_BMI_PCadj
+6016              PRS_WHR_PCadj
+6017              PRS_WHRadjBMI_PCadj
+6018              ;
+6019      set bmi_nomiss;
+6020  run;
+
+NOTE: There were 17988 observations read from the data set WORK.BMI_NOMISS.
+NOTE: The data set GPDISC.GPDISC_CVD_STR_ADATA_20221212 has 17988 observations and 31
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.04 seconds
+
+
+6021
+6022  /* STATA format */
+6023  PROC EXPORT DATA= GPdisc.GPdisc_CVD_STR_adata_20221212
+6024      OUTFILE=
+6024! "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\GPdisc_CVD_STR_adata_20221212.dta"
+6025      DBMS=STATA REPLACE;
+6026  RUN;
+
+NOTE: The export data set has 17988 observations and 31 variables.
+NOTE: "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\GPdisc_CVD_STR_adata_20221212.dta" file was
+      successfully created.
+NOTE: PROCEDURE EXPORT used (Total process time):
+      real time           0.17 seconds
+      cpu time            0.01 seconds
+
+
+6027
+6028  /****************************************************************************************
+6028! *******/
+6029  /**************************************** END OF FILE
+6029! ******************************************/
+6030  /****************************************************************************************
+6030! *******/
+

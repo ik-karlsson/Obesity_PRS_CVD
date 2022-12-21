@@ -1,0 +1,1269 @@
+-------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ opened on:  21 Dec 2022, 13:48:20
+
+. set more off
+
+. 
+. use "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\GPdisc_CVD_STR_adata_20221212
+> .dta", clear
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    // DATA MANAGEMENT //
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. /// Dropping those missing midlife BMI
+> drop if BMImid==.
+(1,865 observations deleted)
+
+. tab sex, mi
+
+        sex |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          1 |      7,502       46.53       46.53
+          2 |      8,621       53.47      100.00
+------------+-----------------------------------
+      Total |     16,123      100.00
+
+. // remaining n=16123
+. 
+. /// CAtegorize BMI
+> gen BMImid_cat=1 if BMImid>=18.5 & BMImid <25
+(7,055 missing values generated)
+
+. replace BMImid_cat=2 if BMImid>=25 & BMImid <30
+(5,854 real changes made)
+
+. replace BMImid_cat=3 if BMImid!=. & BMImid >=30
+(1,201 real changes made)
+
+. 
+. tab BMImid_cat, mi
+
+ BMImid_cat |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          1 |      9,068       56.24       56.24
+          2 |      5,854       36.31       92.55
+          3 |      1,201        7.45      100.00
+------------+-----------------------------------
+      Total |     16,123      100.00
+
+. 
+. /// Categorize the PRSs
+> egen PRS_BMI_grpm= mean(PRS_BMI_PCadj), by(study)
+
+. egen PRS_BMI_grpsd= sd(PRS_BMI_PCadj), by(study)
+
+. gen z_PRS_BMI_PCadj= (PRS_BMI_PCadj-PRS_BMI_grpm)/PRS_BMI_grpsd
+
+. 
+. // Tertiles
+. xtile tert_PRS_BMI = z_PRS_BMI_PCadj, nquantiles(3)
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                         ///// SETTING UP THE 
+> SURVIVAL DATA, BMI MID /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Generate age at end of follow-up
+. gen age_exit=lastage if reg_CVDany==0
+(3,459 missing values generated)
+
+. replace age_exit=reg_CVDany_age if reg_CVDany==1
+(3,459 real changes made)
+
+. 
+. // Setting up the survival data with cvd as outcome
+. stset age_exit, failure(reg_CVDany==1) id(twinnr) enter(BMImid_age)
+
+Survival-time data settings
+
+           ID variable: twinnr
+         Failure event: reg_CVDany==1
+Observed time interval: (age_exit[_n-1], age_exit]
+     Enter on or after: time BMImid_age
+     Exit on or before: failure
+
+--------------------------------------------------------------------------
+     16,123  total observations
+        337  observations end on or before enter()
+--------------------------------------------------------------------------
+     15,786  observations remaining, representing
+     15,786  subjects
+      3,123  failures in single-failure-per-subject data
+    278,705  total analysis time at risk and under observation
+                                                At risk from t =         0
+                                     Earliest observed entry t =        40
+                                          Last observed exit t =       104
+
+. 
+. ///// Pair descriptives
+> drop if _st!=1
+(337 observations deleted)
+
+. // n=337 deleted
+. 
+. // Keep only complete pairs!
+. sort pairid 
+
+. by pairid: gen pair = _N
+
+. // CVD by pair
+. bysort pairid: egen reg_CVDany_pair = total(reg_CVDany)
+
+. 
+. drop if pair!=2
+(5,498 observations deleted)
+
+. tab zygosity reg_CVDany_pair
+
+           |         reg_CVDany_pair
+  zygosity |         0          1          2 |     Total
+-----------+---------------------------------+----------
+         1 |     2,780        886        374 |     4,040 
+         2 |     2,316        952        380 |     3,648 
+         4 |     1,904        586        110 |     2,600 
+-----------+---------------------------------+----------
+     Total |     7,000      2,424        864 |    10,288 
+
+. /*         |         reg_CVDany_pair
+>   zygosity |         0          1          2 |     Total
+> -----------+---------------------------------+----------
+>          1 |     2,780        886        374 |     4,040 
+>          2 |     2,316        952        380 |     3,648 
+>          4 |     1,904        586        110 |     2,600 
+> -----------+---------------------------------+----------
+>      Total |     7,000      2,424        864 |    10,288 
+> 
+> --> 5144 complete pairs; 1212 are discordant for CVD
+> --> 2020 complete MZ pairs; 443 are discordant for CVD
+> --> 3124 complete DZ pairs; 769 are discordant for CVD */
+.          
+. stdes
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+                                   |-------------- Per subject --------------|
+Category                   Total        Mean         Min     Median        Max
+------------------------------------------------------------------------------
+Number of subjects         10288   
+Number of records          10288           1           1          1          1
+
+Entry time (first)                  52.25855          40         53         64
+Exit time (final)                   70.26516          45         70        104
+
+Subjects with gap              0   
+Time on gap                    0           .           .          .          .
+Time at risk              185252    18.00661           1         16         62
+
+Failures                    2076    .2017885           0          0          1
+------------------------------------------------------------------------------
+
+. /*                                 |-------------- Per subject --------------
+> |
+> Category                   Total        Mean         Min     Median        Ma
+> x
+> -----------------------------------------------------------------------------
+> -
+> Number of subjects         10288   
+> Number of records          10288           1           1          1          
+> 1
+> 
+> Entry time (first)                  52.25855          40         53         6
+> 4
+> Exit time (final)                   70.26516          45         70        10
+> 4
+> 
+> Subjects with gap              0   
+> Time on gap                    0           .           .          .          
+> .
+> Time at risk              185252    18.00661           1         16         6
+> 2
+> 
+> Failures                    2076    .2017885           0          0          
+> 1
+> -----------------------------------------------------------------------------
+> -
+>  */
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                         /////
+>  SURVIVAL ANALYSES /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Numeric studyn
+. encode study, gen(studyn)
+
+. tab study studyn, mi
+
+           |              studyn
+     study |      GOSH     SALT-Y   TwinGene |     Total
+-----------+---------------------------------+----------
+      GOSH |     1,011          0          0 |     1,011 
+    SALT-Y |         0      2,657          0 |     2,657 
+  TwinGene |         0          0      6,620 |     6,620 
+-----------+---------------------------------+----------
+     Total |     1,011      2,657      6,620 |    10,288 
+
+. 
+. cap postclose coxreg_cvd
+
+.         postfile coxreg_cvd str20  (PRScat BMIall_ow BMItwin_ow BMIdz_ow BMIm
+> z_ow BMIall_ob BMItwin_ob BMIdz_ob BMImz_ob) ///
+>                                                                 using P:\Deme
+> ntia_IK\SfoEpi\GPdisc_CVD\Output\GOSH\GPdisc_CVD_STR_analyses_20221212_twin_m
+> id_CVDany.dta, replace
+(file
+    P:\Dementia_IK\SfoEpi\GPdisc_CVD\Output\GOSH\GPdisc_CVD_STR_analyses_2022
+    > 1212_twin_mid_CVDany.dta not found)
+
+.         set more off
+
+.         // BMI, categorical, total sample
+.         stcox i.BMImid_cat educ sex smoke i.studyn, vce(cluster pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -16847.921
+Iteration 1:   log pseudolikelihood = -16700.941
+Iteration 2:   log pseudolikelihood = -16700.441
+Iteration 3:   log pseudolikelihood = -16700.441
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -16700.441
+
+Cox regression with Breslow method for ties
+
+No. of subjects =  10,288                               Number of obs = 10,288
+No. of failures =   2,076
+Time at risk    = 185,252
+                                                        Wald chi2(7)  = 280.62
+Log pseudolikelihood = -16700.441                       Prob > chi2   = 0.0000
+
+                             (Std. err. adjusted for 5,144 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |    1.28126   .0614156     5.17   0.000     1.166369    1.407468
+          3  |   1.734858   .1520319     6.29   0.000     1.461067    2.059955
+             |
+        educ |   .9499631   .0484285    -1.01   0.314     .8596328    1.049785
+         sex |   .5783802   .0279187   -11.34   0.000     .5261692     .635772
+       smoke |   1.334225   .0640787     6.00   0.000     1.214362    1.465918
+             |
+      studyn |
+     SALT-Y  |   .9447832   .0863668    -0.62   0.534     .7898053    1.130171
+   TwinGene  |   .9444656   .0569911    -0.95   0.344     .8391175     1.06304
+------------------------------------------------------------------------------
+
+.                 lincom 2.BMImid_cat
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2478441   .0479338     5.17   0.000     .1538957    .3417926
+------------------------------------------------------------------------------
+
+.                 local m_BMIall_ow = r(estimate)
+
+.                 local se_BMIall_ow = r(se)
+
+.                 local Lci_BMIall_ow = exp(`m_BMIall_ow'-1.96*`se_BMIall_ow')
+
+.                 local Uci_BMIall_ow = exp(`m_BMIall_ow'+1.96*`se_BMIall_ow')
+
+.                 local BMIall_ow= string(exp(`m_BMIall_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIall_ow',"%9.2f")+"-"+string(`Uci_BMIall_ow',"%9.2f")+")"  
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5509255   .0876336     6.29   0.000     .3791667    .7226843
+------------------------------------------------------------------------------
+
+.                 local m_BMIall_ob = r(estimate)
+
+.                 local se_BMIall_ob = r(se)
+
+.                 local Lci_BMIall_ob = exp(`m_BMIall_ob'-1.96*`se_BMIall_ob')
+
+.                 local Uci_BMIall_ob = exp(`m_BMIall_ob'+1.96*`se_BMIall_ob')
+
+.                 local BMIall_ob= string(exp(`m_BMIall_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIall_ob',"%9.2f")+"-"+string(`Uci_BMIall_ob',"%9.2f")+")"  
+
+.                 
+.         // BMI, categorical, co-twin control
+.         stcox i.BMImid_cat educ sex smoke, strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -1095.1725
+Iteration 1:   log likelihood = -1065.5349
+Iteration 2:   log likelihood = -1065.4566
+Iteration 3:   log likelihood = -1065.4566
+Refining estimates:
+Iteration 0:   log likelihood = -1065.4566
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  10,288                               Number of obs = 10,288
+No. of failures =   2,076
+Time at risk    = 185,252
+                                                        LR chi2(5)    =  59.43
+Log likelihood = -1065.4566                             Prob > chi2   = 0.0000
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.257006   .1085128     2.65   0.008     1.061344    1.488739
+          3  |   1.461186   .2384303     2.32   0.020     1.061231    2.011876
+             |
+        educ |   .8514617   .0910175    -1.50   0.133     .6905187    1.049917
+         sex |   .5136218   .0605158    -5.65   0.000     .4077119    .6470435
+       smoke |   1.264091   .1258683     2.35   0.019     1.039973    1.536506
+------------------------------------------------------------------------------
+
+.                 lincom 2.BMImid_cat
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2287325   .0863265     2.65   0.008     .0595357    .3979292
+------------------------------------------------------------------------------
+
+.                 local m_BMItwin_ow = r(estimate)
+
+.                 local se_BMItwin_ow = r(se)
+
+.                 local Lci_BMItwin_ow = exp(`m_BMItwin_ow'-1.96*`se_BMItwin_ow
+> ')
+
+.                 local Uci_BMItwin_ow = exp(`m_BMItwin_ow'+1.96*`se_BMItwin_ow
+> ')
+
+.                 local BMItwin_ow= string(exp(`m_BMItwin_ow'),"%9.2f")+" ("+st
+> ring(`Lci_BMItwin_ow',"%9.2f")+"-"+string(`Uci_BMItwin_ow',"%9.2f")+")"  
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3792485   .1631759     2.32   0.020     .0594297    .6990674
+------------------------------------------------------------------------------
+
+.                 local m_BMItwin_ob = r(estimate)
+
+.                 local se_BMItwin_ob = r(se)
+
+.                 local Lci_BMItwin_ob = exp(`m_BMItwin_ob'-1.96*`se_BMItwin_ob
+> ')
+
+.                 local Uci_BMItwin_ob = exp(`m_BMItwin_ob'+1.96*`se_BMItwin_ob
+> ')
+
+.                 local BMItwin_ob= string(exp(`m_BMItwin_ob'),"%9.2f")+" ("+st
+> ring(`Lci_BMItwin_ob',"%9.2f")+"-"+string(`Uci_BMItwin_ob',"%9.2f")+")"  
+
+. 
+.         // BMI, categorical, co-twin control, DZ only
+.         stcox i.BMImid_cat educ sex smoke if(zygosity!=1), strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -682.74997
+Iteration 1:   log likelihood =  -651.4172
+Iteration 2:   log likelihood = -651.29297
+Iteration 3:   log likelihood = -651.29296
+Refining estimates:
+Iteration 0:   log likelihood = -651.29296
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =   6,248                               Number of obs =  6,248
+No. of failures =   1,259
+Time at risk    = 110,373
+                                                        LR chi2(5)    =  62.91
+Log likelihood = -651.29296                             Prob > chi2   = 0.0000
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.352041   .1418721     2.87   0.004     1.100707    1.660764
+          3  |   1.638493   .3254292     2.49   0.013     1.110154    2.418276
+             |
+        educ |   .8977411   .1149857    -0.84   0.400     .6984355     1.15392
+         sex |   .5219684   .0619133    -5.48   0.000     .4136937    .6585815
+       smoke |   1.419205   .1656506     3.00   0.003     1.128996    1.784013
+------------------------------------------------------------------------------
+
+.         lincom 2.BMImid_cat
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3016155   .1049318     2.87   0.004     .0959529     .507278
+------------------------------------------------------------------------------
+
+.                 local m_BMIdz_ow = r(estimate)
+
+.                 local se_BMIdz_ow = r(se)
+
+.                 local Lci_BMIdz_ow = exp(`m_BMIdz_ow'-1.96*`se_BMIdz_ow')
+
+.                 local Uci_BMIdz_ow = exp(`m_BMIdz_ow'+1.96*`se_BMIdz_ow')
+
+.                 local BMIdz_ow= string(exp(`m_BMIdz_ow'),"%9.2f")+" ("+string
+> (`Lci_BMIdz_ow',"%9.2f")+"-"+string(`Uci_BMIdz_ow',"%9.2f")+")"  
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4937769   .1986149     2.49   0.013     .1044988     .883055
+------------------------------------------------------------------------------
+
+.                 local m_BMIdz_ob = r(estimate)
+
+.                 local se_BMIdz_ob = r(se)
+
+.                 local Lci_BMIdz_ob = exp(`m_BMIdz_ob'-1.96*`se_BMIdz_ob')
+
+.                 local Uci_BMIdz_ob = exp(`m_BMIdz_ob'+1.96*`se_BMIdz_ob')
+
+.                 local BMIdz_ob= string(exp(`m_BMIdz_ob'),"%9.2f")+" ("+string
+> (`Lci_BMIdz_ob',"%9.2f")+"-"+string(`Uci_BMIdz_ob',"%9.2f")+")"  
+
+. 
+.         // BMI, categorical, co-twin control, MZ only
+.         stcox i.BMImid_cat educ sex smoke if(zygosity==1), strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -412.42257
+Iteration 1:   log likelihood =  -411.3941
+Iteration 2:   log likelihood = -411.39407
+Refining estimates:
+Iteration 0:   log likelihood = -411.39407
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  4,040                                Number of obs =  4,040
+No. of failures =    817
+Time at risk    = 74,879
+                                                        LR chi2(4)    =   2.06
+Log likelihood = -411.39407                             Prob > chi2   = 0.7253
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |     1.0792   .1666122     0.49   0.622     .7974241    1.460544
+          3  |   1.141752   .3329534     0.45   0.649     .6446849    2.022069
+             |
+        educ |   .7775633   .1532156    -1.28   0.202     .5284575    1.144093
+         sex |          1  (omitted)
+       smoke |   .9311604   .1815873    -0.37   0.715      .635375    1.364642
+------------------------------------------------------------------------------
+
+.         lincom 2.BMImid_cat
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0762202   .1543849     0.49   0.622    -.2263686     .378809
+------------------------------------------------------------------------------
+
+.                 local m_BMImz_ow = r(estimate)
+
+.                 local se_BMImz_ow = r(se)
+
+.                 local Lci_BMImz_ow = exp(`m_BMImz_ow'-1.96*`se_BMImz_ow')
+
+.                 local Uci_BMImz_ow = exp(`m_BMImz_ow'+1.96*`se_BMImz_ow')
+
+.                 local BMImz_ow= string(exp(`m_BMImz_ow'),"%9.2f")+" ("+string
+> (`Lci_BMImz_ow',"%9.2f")+"-"+string(`Uci_BMImz_ow',"%9.2f")+")"  
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1325637   .2916163     0.45   0.649    -.4389937    .7041211
+------------------------------------------------------------------------------
+
+.                 local m_BMImz_ob = r(estimate)
+
+.                 local se_BMImz_ob = r(se)
+
+.                 local Lci_BMImz_ob = exp(`m_BMImz_ob'-1.96*`se_BMImz_ob')
+
+.                 local Uci_BMImz_ob = exp(`m_BMImz_ob'+1.96*`se_BMImz_ob')
+
+.                 local BMImz_ob= string(exp(`m_BMImz_ob'),"%9.2f")+" ("+string
+> (`Lci_BMImz_ob',"%9.2f")+"-"+string(`Uci_BMImz_ob',"%9.2f")+")"  
+
+. 
+.                 post coxreg_cvd ("All") ("`BMIall_ow'") ("`BMItwin_ow'") ("`B
+> MIdz_ow'") ("`BMImz_ow'") ("`BMIall_ob'") ("`BMItwin_ob'") ("`BMIdz_ob'") ("`
+> BMImz_ob'") 
+
+.         
+.         /// By tertiles of PRSbmi
+>         foreach j of num 1/3 {
+  2.         set more off
+  3.         // BMI, categorical, total sample
+.         stcox i.BMImid_cat educ sex smoke i.studyn if(tert_PRS_BMI==`j'), vce
+> (cluster pairid)
+  4.                 lincom 2.BMImid_cat
+  5.                 local m_BMIall_ow = r(estimate)
+  6.                 local se_BMIall_ow = r(se)
+  7.                 local Lci_BMIall_ow = exp(`m_BMIall_ow'-1.96*`se_BMIall_ow
+> ')
+  8.                 local Uci_BMIall_ow = exp(`m_BMIall_ow'+1.96*`se_BMIall_ow
+> ')
+  9.                 local BMIall_ow= string(exp(`m_BMIall_ow'),"%9.2f")+" ("+s
+> tring(`Lci_BMIall_ow',"%9.2f")+"-"+string(`Uci_BMIall_ow',"%9.2f")+")"  
+ 10.         lincom 3.BMImid_cat
+ 11.                 local m_BMIall_ob = r(estimate)
+ 12.                 local se_BMIall_ob = r(se)
+ 13.                 local Lci_BMIall_ob = exp(`m_BMIall_ob'-1.96*`se_BMIall_ob
+> ')
+ 14.                 local Uci_BMIall_ob = exp(`m_BMIall_ob'+1.96*`se_BMIall_ob
+> ')
+ 15.                 local BMIall_ob= string(exp(`m_BMIall_ob'),"%9.2f")+" ("+s
+> tring(`Lci_BMIall_ob',"%9.2f")+"-"+string(`Uci_BMIall_ob',"%9.2f")+")"  
+ 16.                 
+.         // BMI, categorical, co-twin control
+.         stcox i.BMImid_cat educ sex smoke if(tert_PRS_BMI==`j'), strata(pairi
+> d)
+ 17.                 lincom 2.BMImid_cat
+ 18.                 local m_BMItwin_ow = r(estimate)
+ 19.                 local se_BMItwin_ow = r(se)
+ 20.                 local Lci_BMItwin_ow = exp(`m_BMItwin_ow'-1.96*`se_BMItwin
+> _ow')
+ 21.                 local Uci_BMItwin_ow = exp(`m_BMItwin_ow'+1.96*`se_BMItwin
+> _ow')
+ 22.                 local BMItwin_ow= string(exp(`m_BMItwin_ow'),"%9.2f")+" ("
+> +string(`Lci_BMItwin_ow',"%9.2f")+"-"+string(`Uci_BMItwin_ow',"%9.2f")+")"  
+ 23.         lincom 3.BMImid_cat
+ 24.                 local m_BMItwin_ob = r(estimate)
+ 25.                 local se_BMItwin_ob = r(se)
+ 26.                 local Lci_BMItwin_ob = exp(`m_BMItwin_ob'-1.96*`se_BMItwin
+> _ob')
+ 27.                 local Uci_BMItwin_ob = exp(`m_BMItwin_ob'+1.96*`se_BMItwin
+> _ob')
+ 28.                 local BMItwin_ob= string(exp(`m_BMItwin_ob'),"%9.2f")+" ("
+> +string(`Lci_BMItwin_ob',"%9.2f")+"-"+string(`Uci_BMItwin_ob',"%9.2f")+")"  
+ 29. 
+.         // BMI, categorical, co-twin control, DZ only
+.         stcox i.BMImid_cat educ sex smoke if(tert_PRS_BMI==`j' & zygosity!=1)
+> , strata(pairid)
+ 30.         lincom 2.BMImid_cat
+ 31.                 local m_BMIdz_ow = r(estimate)
+ 32.                 local se_BMIdz_ow = r(se)
+ 33.                 local Lci_BMIdz_ow = exp(`m_BMIdz_ow'-1.96*`se_BMIdz_ow')
+ 34.                 local Uci_BMIdz_ow = exp(`m_BMIdz_ow'+1.96*`se_BMIdz_ow')
+ 35.                 local BMIdz_ow= string(exp(`m_BMIdz_ow'),"%9.2f")+" ("+str
+> ing(`Lci_BMIdz_ow',"%9.2f")+"-"+string(`Uci_BMIdz_ow',"%9.2f")+")"  
+ 36.         lincom 3.BMImid_cat
+ 37.                 local m_BMIdz_ob = r(estimate)
+ 38.                 local se_BMIdz_ob = r(se)
+ 39.                 local Lci_BMIdz_ob = exp(`m_BMIdz_ob'-1.96*`se_BMIdz_ob')
+ 40.                 local Uci_BMIdz_ob = exp(`m_BMIdz_ob'+1.96*`se_BMIdz_ob')
+ 41.                 local BMIdz_ob= string(exp(`m_BMIdz_ob'),"%9.2f")+" ("+str
+> ing(`Lci_BMIdz_ob',"%9.2f")+"-"+string(`Uci_BMIdz_ob',"%9.2f")+")"  
+ 42. 
+.         // BMI, categorical, co-twin control, MZ only
+.         stcox i.BMImid_cat educ sex smoke if(tert_PRS_BMI==`j' & zygosity==1)
+> , strata(pairid)
+ 43.         lincom 2.BMImid_cat
+ 44.                 local m_BMImz_ow = r(estimate)
+ 45.                 local se_BMImz_ow = r(se)
+ 46.                 local Lci_BMImz_ow = exp(`m_BMImz_ow'-1.96*`se_BMImz_ow')
+ 47.                 local Uci_BMImz_ow = exp(`m_BMImz_ow'+1.96*`se_BMImz_ow')
+ 48.                 local BMImz_ow= string(exp(`m_BMImz_ow'),"%9.2f")+" ("+str
+> ing(`Lci_BMImz_ow',"%9.2f")+"-"+string(`Uci_BMImz_ow',"%9.2f")+")"  
+ 49.         lincom 3.BMImid_cat
+ 50.                 local m_BMImz_ob = r(estimate)
+ 51.                 local se_BMImz_ob = r(se)
+ 52.                 local Lci_BMImz_ob = exp(`m_BMImz_ob'-1.96*`se_BMImz_ob')
+ 53.                 local Uci_BMImz_ob = exp(`m_BMImz_ob'+1.96*`se_BMImz_ob')
+ 54.                 local BMImz_ob= string(exp(`m_BMImz_ob'),"%9.2f")+" ("+str
+> ing(`Lci_BMImz_ob',"%9.2f")+"-"+string(`Uci_BMImz_ob',"%9.2f")+")"  
+ 55. 
+.                 post coxreg_cvd ("`j'") ("`BMIall_ow'") ("`BMItwin_ow'") ("`B
+> MIdz_ow'") ("`BMImz_ow'") ("`BMIall_ob'") ("`BMItwin_ob'") ("`BMIdz_ob'") ("`
+> BMImz_ob'") 
+ 56.         }
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4663.1141
+Iteration 1:   log pseudolikelihood = -4617.0011
+Iteration 2:   log pseudolikelihood = -4615.8593
+Iteration 3:   log pseudolikelihood = -4615.8413
+Iteration 4:   log pseudolikelihood = -4615.8413
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4615.8413
+
+Cox regression with Breslow method for ties
+
+No. of subjects =  3,477                                Number of obs =  3,477
+No. of failures =    662
+Time at risk    = 64,113
+                                                        Wald chi2(7)  =  88.46
+Log pseudolikelihood = -4615.8413                       Prob > chi2   = 0.0000
+
+                             (Std. err. adjusted for 2,204 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |    1.16679   .1043949     1.72   0.085     .9791164    1.390437
+          3  |   2.127389   .4842395     3.32   0.001     1.361743    3.323523
+             |
+        educ |   .9220399   .0849788    -0.88   0.378     .7696614    1.104586
+         sex |   .5442452   .0467953    -7.08   0.000     .4598398    .6441434
+       smoke |   1.266464   .1071118     2.79   0.005     1.073006    1.494802
+             |
+      studyn |
+     SALT-Y  |   .8520244   .1488965    -0.92   0.359     .6049219    1.200065
+   TwinGene  |   1.006647   .1072913     0.06   0.950     .8168713    1.240511
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1542568   .0894718     1.72   0.085    -.0211048    .3296183
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .7548955   .2276215     3.32   0.001     .3087657    1.201025
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -252.99872
+Iteration 1:   log likelihood = -246.75938
+Iteration 2:   log likelihood = -246.73947
+Iteration 3:   log likelihood = -246.73947
+Refining estimates:
+Iteration 0:   log likelihood = -246.73947
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  3,477                                Number of obs =  3,477
+No. of failures =    662
+Time at risk    = 64,113
+                                                        LR chi2(5)    =  12.52
+Log likelihood = -246.73947                             Prob > chi2   = 0.0283
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |    1.19732   .2337119     0.92   0.356     .8166942     1.75534
+          3  |   1.463095   .8049628     0.69   0.489     .4976914    4.301154
+             |
+        educ |   .9259868    .213577    -0.33   0.739     .5892192    1.455233
+         sex |    .510885   .1445602    -2.37   0.018     .2934046    .8895685
+       smoke |   1.540198   .3342227     1.99   0.047      1.00662    2.356607
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1800861   .1951958     0.92   0.356    -.2024905    .5626628
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3805541   .5501781     0.69   0.489    -.6977751    1.458883
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -125.45964
+Iteration 1:   log likelihood = -117.28952
+Iteration 2:   log likelihood =  -117.2251
+Iteration 3:   log likelihood = -117.22507
+Refining estimates:
+Iteration 0:   log likelihood = -117.22507
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,097                                Number of obs =  2,097
+No. of failures =    407
+Time at risk    = 38,067
+                                                        LR chi2(5)    =  16.47
+Log likelihood = -117.22507                             Prob > chi2   = 0.0056
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.468096   .3967191     1.42   0.155     .8644436    2.493285
+          3  |   1.736018     1.5694     0.61   0.542      .295154     10.2108
+             |
+        educ |   .8771926   .2745209    -0.42   0.675     .4750158    1.619876
+         sex |   .5284224   .1522031    -2.21   0.027     .3004742    .9292987
+       smoke |    2.04128   .5465736     2.66   0.008     1.207771    3.450011
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .383966    .270227     1.42   0.155    -.1456692    .9136012
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5515939   .9040227     0.61   0.542    -1.220258    2.323446
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -127.53908
+Iteration 1:   log likelihood = -127.35682
+Iteration 2:   log likelihood = -127.35681
+Refining estimates:
+Iteration 0:   log likelihood = -127.35681
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  1,380                                Number of obs =  1,380
+No. of failures =    255
+Time at risk    = 26,046
+                                                        LR chi2(4)    =   0.36
+Log likelihood = -127.35681                             Prob > chi2   = 0.9853
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   .9387885   .2720449    -0.22   0.827     .5319908    1.656653
+          3  |   1.206038   .8538357     0.26   0.791     .3011188     4.83041
+             |
+        educ |     .94165   .3299202    -0.17   0.864       .47387    1.871198
+         sex |          1  (omitted)
+       smoke |    .836746   .3330193    -0.45   0.654     .3835492    1.825434
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.0631651   .2897829    -0.22   0.827    -.6311292     .504799
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1873405   .7079676     0.26   0.791    -1.200251    1.574931
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4837.6828
+Iteration 1:   log pseudolikelihood = -4787.1618
+Iteration 2:   log pseudolikelihood = -4787.0572
+Iteration 3:   log pseudolikelihood = -4787.0572
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4787.0572
+
+Cox regression with Breslow method for ties
+
+No. of subjects =  3,468                                Number of obs =  3,468
+No. of failures =    695
+Time at risk    = 62,930
+                                                        Wald chi2(7)  = 102.52
+Log pseudolikelihood = -4787.0572                       Prob > chi2   = 0.0000
+
+                             (Std. err. adjusted for 2,390 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.306234   .1065829     3.27   0.001     1.113183    1.532764
+          3  |   1.712484   .2810202     3.28   0.001     1.241491    2.362161
+             |
+        educ |   .9419769    .080318    -0.70   0.483     .7970072    1.113316
+         sex |   .5684171   .0468485    -6.85   0.000     .4836284    .6680708
+       smoke |   1.290825    .102598     3.21   0.001     1.104617    1.508422
+             |
+      studyn |
+     SALT-Y  |   1.167305   .1787352     1.01   0.312     .8646701    1.575863
+   TwinGene  |   1.017125   .1038149     0.17   0.868     .8327123    1.242379
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2671481   .0815956     3.27   0.001     .1072237    .4270725
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .537945   .1641009     3.28   0.001      .216313    .8595769
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -224.57969
+Iteration 1:   log likelihood = -221.70354
+Iteration 2:   log likelihood = -221.69861
+Iteration 3:   log likelihood = -221.69861
+Refining estimates:
+Iteration 0:   log likelihood = -221.69861
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  3,468                                Number of obs =  3,468
+No. of failures =    695
+Time at risk    = 62,930
+                                                        LR chi2(5)    =   5.76
+Log likelihood = -221.69861                             Prob > chi2   = 0.3301
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.268891    .244246     1.24   0.216     .8701184    1.850419
+          3  |   1.171984   .4368274     0.43   0.670     .5644918    2.433243
+             |
+        educ |   .9541447   .2668275    -0.17   0.867     .5515373    1.650645
+         sex |   .5119368   .2013106    -1.70   0.089     .2368621    1.106464
+       smoke |   1.106463   .2385698     0.47   0.639     .7251122    1.688373
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2381431   .1924878     1.24   0.216     -.139126    .6154123
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1586978   .3727248     0.43   0.670    -.5718293     .889225
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood =  -76.24619
+Iteration 1:   log likelihood =  -72.80061
+Iteration 2:   log likelihood = -72.785803
+Iteration 3:   log likelihood = -72.785801
+Refining estimates:
+Iteration 0:   log likelihood = -72.785801
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,085                                Number of obs =  2,085
+No. of failures =    403
+Time at risk    = 37,079
+                                                        LR chi2(5)    =   6.92
+Log likelihood = -72.785801                             Prob > chi2   = 0.2266
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.635047   .5688509     1.41   0.158     .8267757    3.233498
+          3  |   1.575152   .9711133     0.74   0.461     .4704783     5.27358
+             |
+        educ |    1.27286   .6018174     0.51   0.610     .5038794    3.215399
+         sex |   .5078008    .208897    -1.65   0.099     .2267407    1.137253
+       smoke |   1.422388   .4802749     1.04   0.297     .7338491    2.756955
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4916714   .3479111     1.41   0.158    -.1902219    1.173565
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .454352   .6165203     0.74   0.461    -.7540055     1.66271
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood =  -148.3335
+Iteration 1:   log likelihood = -147.99174
+Iteration 2:   log likelihood = -147.99174
+Refining estimates:
+Iteration 0:   log likelihood = -147.99174
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  1,383                                Number of obs =  1,383
+No. of failures =    292
+Time at risk    = 25,851
+                                                        LR chi2(4)    =   0.68
+Log likelihood = -147.99174                             Prob > chi2   = 0.9533
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.150571   .2688289     0.60   0.548     .7278324    1.818842
+          3  |    1.02126   .4830289     0.04   0.965     .4041478    2.580667
+             |
+        educ |    .842193   .2957854    -0.49   0.625     .4231188    1.676335
+         sex |          1  (omitted)
+       smoke |   .9667965   .2777923    -0.12   0.906     .5504996    1.697904
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1402579   .2336484     0.60   0.548    -.3176844    .5982003
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0210368   .4729736     0.04   0.965    -.9059745    .9480481
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -5066.1625
+Iteration 1:   log pseudolikelihood = -5019.9919
+Iteration 2:   log pseudolikelihood = -5019.9102
+Iteration 3:   log pseudolikelihood = -5019.9102
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -5019.9102
+
+Cox regression with Breslow method for ties
+
+No. of subjects =  3,343                                Number of obs =  3,343
+No. of failures =    719
+Time at risk    = 58,209
+                                                        Wald chi2(7)  =  88.01
+Log pseudolikelihood = -5019.9102                       Prob > chi2   = 0.0000
+
+                             (Std. err. adjusted for 2,123 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.258316   .1057486     2.73   0.006     1.067223    1.483627
+          3  |   1.526908   .1875796     3.45   0.001     1.200172    1.942596
+             |
+        educ |   .9936344   .0839421    -0.08   0.940     .8420101    1.172562
+         sex |   .6150059   .0494243    -6.05   0.000     .5253798    .7199216
+       smoke |   1.407972   .1178141     4.09   0.000     1.195001    1.658897
+             |
+      studyn |
+     SALT-Y  |   .8125977   .1193448    -1.41   0.158      .609342    1.083652
+   TwinGene  |   .8109356   .0809962    -2.10   0.036     .6667582    .9862894
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2297747   .0840398     2.73   0.006     .0650598    .3944896
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4232448   .1228493     3.45   0.001     .1824646    .6640251
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -276.56573
+Iteration 1:   log likelihood = -269.02121
+Iteration 2:   log likelihood = -268.98551
+Iteration 3:   log likelihood =  -268.9855
+Refining estimates:
+Iteration 0:   log likelihood =  -268.9855
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  3,343                                Number of obs =  3,343
+No. of failures =    719
+Time at risk    = 58,209
+                                                        LR chi2(5)    =  15.16
+Log likelihood = -268.9855                              Prob > chi2   = 0.0097
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.083384   .2012995     0.43   0.666     .7527036    1.559341
+          3  |   1.201758   .3372087     0.65   0.512     .6933829    2.082864
+             |
+        educ |   .7923569   .1657841    -1.11   0.266      .525805    1.194035
+         sex |   .3961389   .1116058    -3.29   0.001     .2280526    .6881132
+       smoke |    .944305   .2019875    -0.27   0.789     .6209258    1.436101
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0800896   .1858062     0.43   0.666    -.2840838     .444263
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1837855   .2805962     0.65   0.512    -.3661729    .7337438
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -140.70888
+Iteration 1:   log likelihood = -133.84091
+Iteration 2:   log likelihood = -133.80878
+Iteration 3:   log likelihood = -133.80878
+Refining estimates:
+Iteration 0:   log likelihood = -133.80878
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,066                                Number of obs =  2,066
+No. of failures =    449
+Time at risk    = 35,227
+                                                        LR chi2(5)    =  13.80
+Log likelihood = -133.80878                             Prob > chi2   = 0.0169
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.075804   .2588819     0.30   0.761     .6712735    1.724116
+          3  |   1.182047   .4162991     0.47   0.635     .5927265    2.357301
+             |
+        educ |   .9090121   .2479076    -0.35   0.726     .5326333    1.551355
+         sex |   .3926242   .1115191    -3.29   0.001     .2250121    .6850912
+       smoke |   .9613903    .256579    -0.15   0.883     .5698077    1.622076
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .073068   .2406404     0.30   0.761    -.3985786    .5447146
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1672476   .3521849     0.47   0.635    -.5230222    .8575174
+------------------------------------------------------------------------------
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -135.85685
+Iteration 1:   log likelihood = -134.84317
+Iteration 2:   log likelihood = -134.84288
+Refining estimates:
+Iteration 0:   log likelihood = -134.84288
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  1,277                                Number of obs =  1,277
+No. of failures =    270
+Time at risk    = 22,982
+                                                        LR chi2(4)    =   2.03
+Log likelihood = -134.84288                             Prob > chi2   = 0.7306
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.142535   .3418905     0.45   0.656     .6355608    2.053912
+          3  |   1.286257   .6021472     0.54   0.591     .5138627    3.219649
+             |
+        educ |   .6430591   .2155138    -1.32   0.188     .3334115    1.240284
+         sex |          1  (omitted)
+       smoke |    .945835   .3422416    -0.15   0.878     .4653889    1.922272
+------------------------------------------------------------------------------
+
+ ( 1)  2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1332494   .2992386     0.45   0.656    -.4532475    .7197462
+------------------------------------------------------------------------------
+
+ ( 1)  3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2517365    .468139     0.54   0.591    -.6657991    1.169272
+------------------------------------------------------------------------------
+
+. postclose coxreg_cvd
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    ///// SAVING THE LOG/OUTPUT /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. log close
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ closed on:  21 Dec 2022, 13:48:23
+-------------------------------------------------------------------------------

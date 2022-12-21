@@ -1,0 +1,1462 @@
+-------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ opened on:  21 Dec 2022, 13:47:38
+
+. set more off
+
+. 
+. use "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\GPdisc_CVD_STR_adata_20221212
+> .dta", clear
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    // DATA MANAGEMENT //
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. /// Dropping those missing latelife BMI
+> drop if BMIlate==.
+(11,396 observations deleted)
+
+. tab sex, mi
+
+        sex |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          1 |      3,275       49.68       49.68
+          2 |      3,317       50.32      100.00
+------------+-----------------------------------
+      Total |      6,592      100.00
+
+. // remaining n=6592
+. 
+. /// CAtegorize
+> gen BMIlate_cat=1 if BMIlate>=18.5 & BMIlate <25
+(3,751 missing values generated)
+
+. replace BMIlate_cat=2 if BMIlate>=25 & BMIlate <30
+(2,872 real changes made)
+
+. replace BMIlate_cat=3 if BMIlate!=. & BMIlate >=30
+(879 real changes made)
+
+. 
+. tab BMIlate_cat, mi
+
+BMIlate_cat |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          1 |      2,841       43.10       43.10
+          2 |      2,872       43.57       86.67
+          3 |        879       13.33      100.00
+------------+-----------------------------------
+      Total |      6,592      100.00
+
+. 
+. // Only 13 in SALT-Y - will add them to TwinGene for standardization and stud
+> y adjustment as they are both from SALT, and the PRSs are close to identical 
+> in the full samples
+. replace study="TwinGene" if study=="SALT-Y"
+(16 real changes made)
+
+. 
+. egen PRS_BMI_grpm= mean(PRS_BMI_PCadj), by(study)
+
+. egen PRS_BMI_grpsd= sd(PRS_BMI_PCadj), by(study)
+
+. gen z_PRS_BMI_PCadj= (PRS_BMI_PCadj-PRS_BMI_grpm)/PRS_BMI_grpsd
+
+. 
+. // Tertiles
+. xtile tert_PRS_BMI = z_PRS_BMI_PCadj, nquantiles(3)
+
+.          
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                         ///// SETTING UP THE 
+> SURVIVAL DATA, BMI MID /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Generate age at end of follow-up
+. gen age_exit=lastage if reg_CVDany==0
+(2,764 missing values generated)
+
+. replace age_exit=reg_CVDany_age if reg_CVDany==1
+(2,764 real changes made)
+
+. 
+. // Setting up the survival data with cvd as outcome
+. stset age_exit, failure(reg_CVDany==1) id(twinnr) enter(BMIlate_age)
+
+Survival-time data settings
+
+           ID variable: twinnr
+         Failure event: reg_CVDany==1
+Observed time interval: (age_exit[_n-1], age_exit]
+     Enter on or after: time BMIlate_age
+     Exit on or before: failure
+
+--------------------------------------------------------------------------
+      6,592  total observations
+      1,104  observations end on or before enter()
+--------------------------------------------------------------------------
+      5,488  observations remaining, representing
+      5,488  subjects
+      1,681  failures in single-failure-per-subject data
+     50,614  total analysis time at risk and under observation
+                                                At risk from t =         0
+                                     Earliest observed entry t =        65
+                                          Last observed exit t =       104
+
+. 
+. ///// Pair descriptives done in the code for MZ twins
+> drop if _st!=1
+(1,104 observations deleted)
+
+. // n=337 deleted
+. 
+. // Keep only complete pairs!
+. sort pairid 
+
+. by pairid: gen pair = _N
+
+. drop if pair!=2
+(2,148 observations deleted)
+
+. 
+. stdes
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+                                   |-------------- Per subject --------------|
+Category                   Total        Mean         Min     Median        Max
+------------------------------------------------------------------------------
+Number of subjects          3340   
+Number of records           3340           1           1          1          1
+
+Entry time (first)                  71.26886          65         71         89
+Exit time (final)                   80.73503          66         80        104
+
+Subjects with gap              0   
+Time on gap                    0           .           .          .          .
+Time at risk               31617    9.466168           1         10         34
+
+Failures                     929    .2781437           0          0          1
+------------------------------------------------------------------------------
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                         /////
+>  SURVIVAL ANALYSES /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Numeric studyn
+. encode study, gen(studyn)
+
+. tab study studyn, mi
+
+           |        studyn
+     study |      GOSH   TwinGene |     Total
+-----------+----------------------+----------
+      GOSH |       766          0 |       766 
+  TwinGene |         0      2,574 |     2,574 
+-----------+----------------------+----------
+     Total |       766      2,574 |     3,340 
+
+. 
+. cap postclose coxreg_cvd
+
+.         postfile coxreg_cvd str20  (Model BMIind_ow BMIind_ob PRSind BMIjnt_o
+> w BMIjnt_ob PRSjnt ///
+>                                                                 BMIint_ow BMI
+> int_ob PRSint BMI_PRSint_ow BMI_PRSint_ob ///
+>                                                                 PRS_c1_ow PRS
+> _c2_ow PRS_c3_ow PRS_c1_ob PRS_c2_ob PRS_c3_ob) ///
+>                                                                 using P:\Deme
+> ntia_IK\SfoEpi\GPdisc_CVD\Output\GOSH\GPdisc_CVD_STR_analyses_20221212_DZtwin
+> _late_CVDany.dta, replace                                             
+(file
+    P:\Dementia_IK\SfoEpi\GPdisc_CVD\Output\GOSH\GPdisc_CVD_STR_analyses_2022
+    > 1212_DZtwin_late_CVDany.dta not found)
+
+. /// Total sample
+>         set more off
+
+.         // BMI, categorical
+.         stcox i.BMIlate_cat educ, vce(cluster pairid) strata(study sex smoke)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4687.9719
+Iteration 1:   log pseudolikelihood = -4677.0885
+Iteration 2:   log pseudolikelihood = -4677.0627
+Iteration 3:   log pseudolikelihood = -4677.0627
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4677.0627
+
+Stratified Cox regression with Breslow method for ties
+Strata variables: study sex smoke
+
+No. of subjects =  3,340                                Number of obs =  3,340
+No. of failures =    929
+Time at risk    = 31,617
+                                                        Wald chi2(3)  =  23.95
+Log pseudolikelihood = -4677.0627                       Prob > chi2   = 0.0000
+
+                             (Std. err. adjusted for 1,670 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+ BMIlate_cat |
+          2  |    1.20842   .0864776     2.65   0.008     1.050277    1.390376
+          3  |   1.368576   .1354198     3.17   0.002     1.127309    1.661478
+             |
+        educ |   .8195696   .0561666    -2.90   0.004     .7165581    .9373898
+------------------------------------------------------------------------------
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .189314   .0715625     2.65   0.008      .049054     .329574
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ow = r(estimate)
+
+.                 local se_BMIind_ow = r(se)
+
+.                 local Lci_BMIind_ow = exp(`m_BMIind_ow'-1.96*`se_BMIind_ow')
+
+.                 local Uci_BMIind_ow = exp(`m_BMIind_ow'+1.96*`se_BMIind_ow')
+
+.                 local BMIind_ow= string(exp(`m_BMIind_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ow',"%9.2f")+"-"+string(`Uci_BMIind_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3137705   .0989494     3.17   0.002     .1198331    .5077078
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ob = r(estimate)
+
+.                 local se_BMIind_ob = r(se)
+
+.                 local Lci_BMIind_ob = exp(`m_BMIind_ob'-1.96*`se_BMIind_ob')
+
+.                 local Uci_BMIind_ob = exp(`m_BMIind_ob'+1.96*`se_BMIind_ob')
+
+.                 local BMIind_ob= string(exp(`m_BMIind_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ob',"%9.2f")+"-"+string(`Uci_BMIind_ob',"%9.2f")+")"   
+
+.                 
+.         // PRSbmi model
+.         stcox z_PRS_BMI_PCadj educ, vce(cluster pairid) strata(study sex smok
+> e)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4687.9719
+Iteration 1:   log pseudolikelihood = -4681.1678
+Iteration 2:   log pseudolikelihood = -4681.1625
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4681.1625
+
+Stratified Cox regression with Breslow method for ties
+Strata variables: study sex smoke
+
+No. of subjects =  3,340                                Number of obs =  3,340
+No. of failures =    929
+Time at risk    = 31,617
+                                                        Wald chi2(2)  =  14.11
+Log pseudolikelihood = -4681.1625                       Prob > chi2   = 0.0009
+
+                                (Std. err. adjusted for 1,670 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+z_PRS_BMI_PCadj |   1.068177   .0377485     1.87   0.062     .9966955    1.1447
+> 85
+           educ |   .8089301   .0550331    -3.12   0.002     .7079492    .92431
+> 49
+-------------------------------------------------------------------------------
+--
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0659536   .0353392     1.87   0.062      -.00331    .1352172
+------------------------------------------------------------------------------
+
+.                 local m_PRSind = r(estimate)
+
+.                 local se_PRSind = r(se)
+
+.                 local Lci_PRSind = exp(`m_PRSind'-1.96*`se_PRSind')
+
+.                 local Uci_PRSind = exp(`m_PRSind'+1.96*`se_PRSind')
+
+.                 local PRSind= string(exp(`m_PRSind'),"%9.2f")+" ("+string(`Lc
+> i_PRSind',"%9.2f")+"-"+string(`Uci_PRSind',"%9.2f")+")"  
+
+. 
+.         // BMI + PRS model
+.         stcox i.BMIlate_cat z_PRS_BMI_PCadj educ, vce(cluster pairid) strata(
+> study sex smoke)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4687.9719
+Iteration 1:   log pseudolikelihood = -4676.5949
+Iteration 2:   log pseudolikelihood = -4676.5697
+Iteration 3:   log pseudolikelihood = -4676.5697
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4676.5697
+
+Stratified Cox regression with Breslow method for ties
+Strata variables: study sex smoke
+
+No. of subjects =  3,340                                Number of obs =  3,340
+No. of failures =    929
+Time at risk    = 31,617
+                                                        Wald chi2(4)  =  24.94
+Log pseudolikelihood = -4676.5697                       Prob > chi2   = 0.0001
+
+                                (Std. err. adjusted for 1,670 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t | Haz. ratio   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+    BMIlate_cat |
+             2  |   1.193097   .0871016     2.42   0.016     1.034033    1.3766
+> 31
+             3  |   1.325997   .1392854     2.69   0.007     1.079272    1.6291
+> 26
+                |
+z_PRS_BMI_PCadj |   1.035805   .0388366     0.94   0.348      .962416     1.114
+> 79
+           educ |   .8215304   .0562424    -2.87   0.004     .7183729    .93950
+> 13
+-------------------------------------------------------------------------------
+--
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1765527   .0730046     2.42   0.016     .0334663    .3196392
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ow = r(estimate)
+
+.                 local se_BMIjnt_ow = r(se)
+
+.                 local Lci_BMIjnt_ow = exp(`m_BMIjnt_ow'-1.96*`se_BMIjnt_ow')
+
+.                 local Uci_BMIjnt_ow = exp(`m_BMIjnt_ow'+1.96*`se_BMIjnt_ow')
+
+.                 local BMIjnt_ow= string(exp(`m_BMIjnt_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ow',"%9.2f")+"-"+string(`Uci_BMIjnt_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2821649    .105042     2.69   0.007     .0762864    .4880435
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ob = r(estimate)
+
+.                 local se_BMIjnt_ob = r(se)
+
+.                 local Lci_BMIjnt_ob = exp(`m_BMIjnt_ob'-1.96*`se_BMIjnt_ob')
+
+.                 local Uci_BMIjnt_ob = exp(`m_BMIjnt_ob'+1.96*`se_BMIjnt_ob')
+
+.                 local BMIjnt_ob= string(exp(`m_BMIjnt_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ob',"%9.2f")+"-"+string(`Uci_BMIjnt_ob',"%9.2f")+")"  
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0351787   .0374941     0.94   0.348    -.0383085    .1086658
+------------------------------------------------------------------------------
+
+.                 local m_PRSjnt = r(estimate)
+
+.                 local se_PRSjnt = r(se)
+
+.                 local Lci_PRSjnt = exp(`m_PRSjnt'-1.96*`se_PRSjnt')
+
+.                 local Uci_PRSjnt = exp(`m_PRSjnt'+1.96*`se_PRSjnt')
+
+.                 local PRSjnt= string(exp(`m_PRSjnt'),"%9.2f")+" ("+string(`Lc
+> i_PRSjnt',"%9.2f")+"-"+string(`Uci_PRSjnt',"%9.2f")+")"  
+
+.                 
+.         // Interaction model
+.         stcox i.BMIlate_cat##c.z_PRS_BMI_PCadj educ, vce(cluster pairid) stra
+> ta(study sex smoke)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4687.9719
+Iteration 1:   log pseudolikelihood = -4675.1833
+Iteration 2:   log pseudolikelihood = -4675.0954
+Iteration 3:   log pseudolikelihood = -4675.0954
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4675.0954
+
+Stratified Cox regression with Breslow method for ties
+Strata variables: study sex smoke
+
+No. of subjects =  3,340                                Number of obs =  3,340
+No. of failures =    929
+Time at risk    = 31,617
+                                                        Wald chi2(6)  =  26.43
+Log pseudolikelihood = -4675.0954                       Prob > chi2   = 0.0002
+
+                                              (Std. err. adjusted for 1,670 clu
+> sters in pairid)
+-------------------------------------------------------------------------------
+----------------
+                              |               Robust
+                           _t | Haz. ratio   std. err.      z    P>|z|     [95%
+>  con                                                                         
+>     f. interval]
+------------------------------+------------------------------------------------
+----------------
+                  BMIlate_cat |
+                           2  |   1.178433   .0864255     2.24   0.025     1.02
+> 0653                                                                         
+>         1.360603
+                           3  |   1.417107   .1576703     3.13   0.002     1.13
+> 9453                                                                         
+>         1.762419
+                              |
+              z_PRS_BMI_PCadj |    1.07904   .0631019     1.30   0.193     .962
+> 1877                                                                         
+>         1.210085
+                              |
+BMIlate_cat#c.z_PRS_BMI_PCadj |
+                           2  |   .9656446   .0753393    -0.45   0.654     .828
+> 7181                                                                         
+>         1.125195
+                           3  |   .8265636   .0890839    -1.77   0.077     .669
+> 1708                                                                         
+>         1.020976
+                              |
+                         educ |   .8239853   .0562878    -2.83   0.005     .720
+> 7299                                                                         
+>         .9420337
+-------------------------------------------------------------------------------
+----------------
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1641853   .0733393     2.24   0.025     .0204428    .3079278
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ow = r(estimate)
+
+.                 local se_BMIint_ow = r(se)
+
+.                 local Lci_BMIint_ow = exp(`m_BMIint_ow'-1.96*`se_BMIint_ow')
+
+.                 local Uci_BMIint_ow = exp(`m_BMIint_ow'+1.96*`se_BMIint_ow')
+
+.                 local BMIint_ow= string(exp(`m_BMIint_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ow',"%9.2f")+"-"+string(`Uci_BMIint_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3486176   .1112621     3.13   0.002      .130548    .5666873
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ob = r(estimate)
+
+.                 local se_BMIint_ob = r(se)
+
+.                 local Lci_BMIint_ob = exp(`m_BMIint_ob'-1.96*`se_BMIint_ob')
+
+.                 local Uci_BMIint_ob = exp(`m_BMIint_ob'+1.96*`se_BMIint_ob')
+
+.                 local BMIint_ob= string(exp(`m_BMIint_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ob',"%9.2f")+"-"+string(`Uci_BMIint_ob',"%9.2f")+")"  
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0760722   .0584796     1.30   0.193    -.0385458    .1906902
+------------------------------------------------------------------------------
+
+.                 local m_PRSint = r(estimate)
+
+.                 local se_PRSint = r(se)
+
+.                 local Lci_PRSint = exp(`m_PRSint'-1.96*`se_PRSint')
+
+.                 local Uci_PRSint = exp(`m_PRSint'+1.96*`se_PRSint')
+
+.                 local PRSint= string(exp(`m_PRSint'),"%9.2f")+" ("+string(`Lc
+> i_PRSint',"%9.2f")+"-"+string(`Uci_PRSint',"%9.2f")+")"   
+
+.         lincom 2.BMIlate_cat#z_PRS_BMI_PCadj
+
+ ( 1)  2.BMIlate_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.0349594   .0780197    -0.45   0.654    -.1878752    .1179564
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ow = r(estimate)
+
+.                 local se_BMI_PRSint_ow = r(se)
+
+.                 local Lci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'-1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local Uci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'+1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local BMI_PRSint_ow= string(exp(`m_BMI_PRSint_ow'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ow',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ow',"%9.2f
+> ")+")"   
+
+.         lincom 3.BMIlate_cat#z_PRS_BMI_PCadj
+
+ ( 1)  3.BMIlate_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.1904784   .1077763    -1.77   0.077     -.401716    .0207592
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ob = r(estimate)
+
+.                 local se_BMI_PRSint_ob = r(se)
+
+.                 local Lci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'-1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local Uci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'+1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local BMI_PRSint_ob= string(exp(`m_BMI_PRSint_ob'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ob',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ob',"%9.2f
+> ")+")"   
+
+.         
+.         /// By tertiles of PRSbmi
+>         stcox i.tert_PRS_BMI i.tert_PRS_BMI#i.BMIlate_cat educ, vce(cluster p
+> airid) strata(study sex smoke)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -4687.9719
+Iteration 1:   log pseudolikelihood = -4674.3319
+Iteration 2:   log pseudolikelihood = -4674.0676
+Iteration 3:   log pseudolikelihood = -4674.0667
+Refining estimates:
+Iteration 0:   log pseudolikelihood = -4674.0667
+
+Stratified Cox regression with Breslow method for ties
+Strata variables: study sex smoke
+
+No. of subjects =  3,340                                Number of obs =  3,340
+No. of failures =    929
+Time at risk    = 31,617
+                                                        Wald chi2(9)  =  30.07
+Log pseudolikelihood = -4674.0667                       Prob > chi2   = 0.0004
+
+                                         (Std. err. adjusted for 1,670 clusters
+>  in pairid)
+-------------------------------------------------------------------------------
+-----------
+                         |               Robust
+                      _t | Haz. ratio   std. err.      z    P>|z|     [95% conf
+> . interval]
+-------------------------+-----------------------------------------------------
+-----------
+            tert_PRS_BMI |
+                      2  |   1.085035   .1331062     0.67   0.506     .8531453 
+>    1.379954
+                      3  |   1.096372   .1504572     0.67   0.503     .8378111 
+>    1.434729
+                         |
+tert_PRS_BMI#BMIlate_cat |
+                    1 2  |   1.218084   .1420952     1.69   0.091     .9691264 
+>    1.530995
+                    1 3  |    1.92807   .4341669     2.92   0.004     1.240074 
+>    2.997769
+                    2 2  |   1.082796   .1326607     0.65   0.516     .8516483 
+>    1.376681
+                    2 3  |   1.150026   .2152235     0.75   0.455     .7969082 
+>    1.659615
+                    3 2  |   1.293255   .1774222     1.87   0.061     .9883421 
+>    1.692235
+                    3 3  |   1.299543   .2061752     1.65   0.099     .9522384 
+>    1.773518
+                         |
+                    educ |    .822395   .0562066    -2.86   0.004     .7192916 
+>    .9402771
+-------------------------------------------------------------------------------
+-----------
+
+.         /// 1st quartile
+>         lincom 1.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  1b.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1972788   .1166547     1.69   0.091    -.0313603    .4259179
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ow = r(estimate)
+
+.                 local se_PRS_c1_ow = r(se)
+
+.                 local Lci_PRS_c1_ow = exp(`m_PRS_c1_ow'-1.96*`se_PRS_c1_ow')
+
+.                 local Uci_PRS_c1_ow = exp(`m_PRS_c1_ow'+1.96*`se_PRS_c1_ow')
+
+.                 local PRS_c1_ow= string(exp(`m_PRS_c1_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ow',"%9.2f")+"-"+string(`Uci_PRS_c1_ow',"%9.2f")+")"  
+
+.         lincom 1.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  1b.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .6565197   .2251821     2.92   0.004      .215171    1.097868
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ob = r(estimate)
+
+.                 local se_PRS_c1_ob = r(se)
+
+.                 local Lci_PRS_c1_ob = exp(`m_PRS_c1_ob'-1.96*`se_PRS_c1_ob')
+
+.                 local Uci_PRS_c1_ob = exp(`m_PRS_c1_ob'+1.96*`se_PRS_c1_ob')
+
+.                 local PRS_c1_ob= string(exp(`m_PRS_c1_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ob',"%9.2f")+"-"+string(`Uci_PRS_c1_ob',"%9.2f")+")"  
+
+.         /// 2nd quartile
+> lincom 2.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  2.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0795468   .1225168     0.65   0.516    -.1605816    .3196753
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ow = r(estimate)
+
+.                 local se_PRS_c2_ow = r(se)
+
+.                 local Lci_PRS_c2_ow = exp(`m_PRS_c2_ow'-1.96*`se_PRS_c2_ow')
+
+.                 local Uci_PRS_c2_ow = exp(`m_PRS_c2_ow'+1.96*`se_PRS_c2_ow')
+
+.                 local PRS_c2_ow= string(exp(`m_PRS_c2_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ow',"%9.2f")+"-"+string(`Uci_PRS_c2_ow',"%9.2f")+")"  
+
+.         lincom 2.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  2.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1397848   .1871466     0.75   0.455    -.2270158    .5065855
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ob = r(estimate)
+
+.                 local se_PRS_c2_ob = r(se)
+
+.                 local Lci_PRS_c2_ob = exp(`m_PRS_c2_ob'-1.96*`se_PRS_c2_ob')
+
+.                 local Uci_PRS_c2_ob = exp(`m_PRS_c2_ob'+1.96*`se_PRS_c2_ob')
+
+.                 local PRS_c2_ob= string(exp(`m_PRS_c2_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ob',"%9.2f")+"-"+string(`Uci_PRS_c2_ob',"%9.2f")+")"  
+
+.         /// 3rd quartile
+>         lincom 3.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  3.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2571619   .1371904     1.87   0.061    -.0117264    .5260502
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ow = r(estimate)
+
+.                 local se_PRS_c3_ow = r(se)
+
+.                 local Lci_PRS_c3_ow = exp(`m_PRS_c3_ow'-1.96*`se_PRS_c3_ow')
+
+.                 local Uci_PRS_c3_ow = exp(`m_PRS_c3_ow'+1.96*`se_PRS_c3_ow')
+
+.                 local PRS_c3_ow= string(exp(`m_PRS_c3_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ow',"%9.2f")+"-"+string(`Uci_PRS_c3_ow',"%9.2f")+")"  
+
+.         lincom 3.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  3.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2620125   .1586521     1.65   0.099    -.0489399     .572965
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ob = r(estimate)
+
+.                 local se_PRS_c3_ob = r(se)
+
+.                 local Lci_PRS_c3_ob = exp(`m_PRS_c3_ob'-1.96*`se_PRS_c3_ob')
+
+.                 local Uci_PRS_c3_ob = exp(`m_PRS_c3_ob'+1.96*`se_PRS_c3_ob')
+
+.                 local PRS_c3_ob= string(exp(`m_PRS_c3_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ob',"%9.2f")+"-"+string(`Uci_PRS_c3_ob',"%9.2f")+")"  
+
+.                 
+.         post coxreg_cvd ("Total sample") ("`BMIind_ow'") ("`BMIind_ob'") ("`P
+> RSind'") ("`BMIjnt_ow'") ("`BMIjnt_ob'") ("`PRSjnt'") ///
+>                                         ("`BMIint_ow'") ("`BMIint_ob'") ("`PR
+> Sint'") ("`BMI_PRSint_ow'") ("`BMI_PRSint_ob'") ///
+>                                         ("`PRS_c1_ow'") ("`PRS_c2_ow'")  ("`P
+> RS_c3_ow'") ("`PRS_c1_ob'") ("`PRS_c2_ob'") ("`PRS_c3_ob'") 
+
+. 
+. /// DZ only
+>         set more off
+
+.         // BMI, categorical
+.         stcox i.BMIlate_cat educ sex smoke if(zygosity!=1), strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -348.65303
+Iteration 1:   log likelihood = -324.94789
+Iteration 2:   log likelihood = -324.83957
+Iteration 3:   log likelihood = -324.83955
+Refining estimates:
+Iteration 0:   log likelihood = -324.83955
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,470                                Number of obs =  2,470
+No. of failures =    690
+Time at risk    = 23,517
+                                                        LR chi2(5)    =  47.63
+Log likelihood = -324.83955                             Prob > chi2   = 0.0000
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+ BMIlate_cat |
+          2  |   1.298264   .1943123     1.74   0.081     .9681953    1.740857
+          3  |   1.423848   .3190572     1.58   0.115     .9177521     2.20903
+             |
+        educ |   .6804959   .1211447    -2.16   0.031     .4800552    .9646281
+         sex |   .4504953   .0623651    -5.76   0.000     .3434414    .5909189
+       smoke |   1.023195   .1603967     0.15   0.884     .7525296    1.391212
+------------------------------------------------------------------------------
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .261028   .1496708     1.74   0.081    -.0323215    .5543774
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ow = r(estimate)
+
+.                 local se_BMIind_ow = r(se)
+
+.                 local Lci_BMIind_ow = exp(`m_BMIind_ow'-1.96*`se_BMIind_ow')
+
+.                 local Uci_BMIind_ow = exp(`m_BMIind_ow'+1.96*`se_BMIind_ow')
+
+.                 local BMIind_ow= string(exp(`m_BMIind_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ow',"%9.2f")+"-"+string(`Uci_BMIind_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3533628    .224081     1.58   0.115     -.085828    .7925535
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ob = r(estimate)
+
+.                 local se_BMIind_ob = r(se)
+
+.                 local Lci_BMIind_ob = exp(`m_BMIind_ob'-1.96*`se_BMIind_ob')
+
+.                 local Uci_BMIind_ob = exp(`m_BMIind_ob'+1.96*`se_BMIind_ob')
+
+.                 local BMIind_ob= string(exp(`m_BMIind_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ob',"%9.2f")+"-"+string(`Uci_BMIind_ob',"%9.2f")+")"  
+
+.                 
+.         // PRSbmi model
+.         stcox z_PRS_BMI_PCadj educ sex smoke if(zygosity!=1), strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -348.65303
+Iteration 1:   log likelihood = -326.34105
+Iteration 2:   log likelihood = -326.24938
+Iteration 3:   log likelihood = -326.24937
+Refining estimates:
+Iteration 0:   log likelihood = -326.24937
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,470                                Number of obs =  2,470
+No. of failures =    690
+Time at risk    = 23,517
+                                                        LR chi2(4)    =  44.81
+Log likelihood = -326.24937                             Prob > chi2   = 0.0000
+
+-------------------------------------------------------------------------------
+--
+             _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+z_PRS_BMI_PCadj |    1.11083   .1028518     1.14   0.256     .9264773    1.3318
+> 66
+           educ |   .6811367   .1209059    -2.16   0.031     .4809953    .96455
+> 66
+            sex |   .4469179   .0615824    -5.84   0.000     .3411439    .58548
+> 78
+          smoke |   1.009881   .1575744     0.06   0.950     .7437983    1.3711
+> 52
+-------------------------------------------------------------------------------
+--
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1051074   .0925901     1.14   0.256    -.0763657    .2865806
+------------------------------------------------------------------------------
+
+.                 local m_PRSind = r(estimate)
+
+.                 local se_PRSind = r(se)
+
+.                 local Lci_PRSind = exp(`m_PRSind'-1.96*`se_PRSind')
+
+.                 local Uci_PRSind = exp(`m_PRSind'+1.96*`se_PRSind')
+
+.                 local PRSind= string(exp(`m_PRSind'),"%9.2f")+" ("+string(`Lc
+> i_PRSind',"%9.2f")+"-"+string(`Uci_PRSind',"%9.2f")+")"  
+
+. 
+.         // BMI + PRS model
+.         stcox i.BMIlate_cat z_PRS_BMI_PCadj educ sex smoke if(zygosity!=1), s
+> trata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -348.65303
+Iteration 1:   log likelihood = -324.73139
+Iteration 2:   log likelihood = -324.61483
+Iteration 3:   log likelihood = -324.61481
+Refining estimates:
+Iteration 0:   log likelihood = -324.61481
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,470                                Number of obs =  2,470
+No. of failures =    690
+Time at risk    = 23,517
+                                                        LR chi2(6)    =  48.08
+Log likelihood = -324.61481                             Prob > chi2   = 0.0000
+
+-------------------------------------------------------------------------------
+--
+             _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+    BMIlate_cat |
+             2  |   1.276951   .1936512     1.61   0.107     .9486119    1.7189
+> 37
+             3  |   1.369649   .3170027     1.36   0.174     .8701626    2.1558
+> 49
+                |
+z_PRS_BMI_PCadj |   1.066487   .1024806     0.67   0.503     .8834096    1.2875
+> 05
+           educ |   .6796062   .1211024    -2.17   0.030     .4792669    .96368
+> 96
+            sex |   .4506569    .062427    -5.75   0.000     .3435055    .59123
+> 26
+          smoke |   1.023997    .160612     0.15   0.880     .7529904    1.3925
+> 41
+-------------------------------------------------------------------------------
+--
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2444754   .1516512     1.61   0.107    -.0527555    .5417063
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ow = r(estimate)
+
+.                 local se_BMIjnt_ow = r(se)
+
+.                 local Lci_BMIjnt_ow = exp(`m_BMIjnt_ow'-1.96*`se_BMIjnt_ow')
+
+.                 local Uci_BMIjnt_ow = exp(`m_BMIjnt_ow'+1.96*`se_BMIjnt_ow')
+
+.                 local BMIjnt_ow= string(exp(`m_BMIjnt_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ow',"%9.2f")+"-"+string(`Uci_BMIjnt_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3145547   .2314481     1.36   0.174    -.1390752    .7681846
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ob = r(estimate)
+
+.                 local se_BMIjnt_ob = r(se)
+
+.                 local Lci_BMIjnt_ob = exp(`m_BMIjnt_ob'-1.96*`se_BMIjnt_ob')
+
+.                 local Uci_BMIjnt_ob = exp(`m_BMIjnt_ob'+1.96*`se_BMIjnt_ob')
+
+.                 local BMIjnt_ob= string(exp(`m_BMIjnt_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ob',"%9.2f")+"-"+string(`Uci_BMIjnt_ob',"%9.2f")+")"  
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0643701   .0960918     0.67   0.503    -.1239663    .2527065
+------------------------------------------------------------------------------
+
+.                 local m_PRSjnt = r(estimate)
+
+.                 local se_PRSjnt = r(se)
+
+.                 local Lci_PRSjnt = exp(`m_PRSjnt'-1.96*`se_PRSjnt')
+
+.                 local Uci_PRSjnt = exp(`m_PRSjnt'+1.96*`se_PRSjnt')
+
+.                 local PRSjnt= string(exp(`m_PRSjnt'),"%9.2f")+" ("+string(`Lc
+> i_PRSjnt',"%9.2f")+"-"+string(`Uci_PRSjnt',"%9.2f")+")"  
+
+.                 
+.         // Interaction model
+.         stcox i.BMIlate_cat##c.z_PRS_BMI_PCadj educ sex smoke if(zygosity!=1)
+> , strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -348.65303
+Iteration 1:   log likelihood = -321.98739
+Iteration 2:   log likelihood = -321.81366
+Iteration 3:   log likelihood = -321.81358
+Refining estimates:
+Iteration 0:   log likelihood = -321.81358
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,470                                Number of obs =  2,470
+No. of failures =    690
+Time at risk    = 23,517
+                                                        LR chi2(8)    =  53.68
+Log likelihood = -321.81358                             Prob > chi2   = 0.0000
+
+-------------------------------------------------------------------------------
+----------------
+                           _t | Haz. ratio   Std. err.      z    P>|z|     [95%
+>  con                                                                         
+>     f. interval]
+------------------------------+------------------------------------------------
+----------------
+                  BMIlate_cat |
+                           2  |   1.228175   .1900348     1.33   0.184     .906
+> 8893                                                                         
+>         1.663283
+                           3  |   1.742774   .4605868     2.10   0.036     1.03
+> 8203                                                                         
+>         2.925498
+                              |
+              z_PRS_BMI_PCadj |   1.198051   .1546198     1.40   0.161     .930
+> 2933                                                                         
+>         1.542876
+                              |
+BMIlate_cat#c.z_PRS_BMI_PCadj |
+                           2  |   .9068548   .1440526    -0.62   0.538     .664
+> 2409                                                                         
+>         1.238084
+                           3  |   .5584393   .1414592    -2.30   0.021     .339
+> 9044                                                                         
+>         .9174771
+                              |
+                         educ |   .7047445   .1265313    -1.95   0.051     .495
+> 6844                                                                         
+>         1.001978
+                          sex |   .4503427   .0627164    -5.73   0.000      .34
+> 2769                                                                         
+>          .591677
+                        smoke |   1.012513   .1597569     0.08   0.937     .743
+> 1829                                                                         
+>         1.379448
+-------------------------------------------------------------------------------
+----------------
+
+.         lincom 2.BMIlate_cat
+
+ ( 1)  2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2055293   .1547295     1.33   0.184    -.0977349    .5087935
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ow = r(estimate)
+
+.                 local se_BMIint_ow = r(se)
+
+.                 local Lci_BMIint_ow = exp(`m_BMIint_ow'-1.96*`se_BMIint_ow')
+
+.                 local Uci_BMIint_ow = exp(`m_BMIint_ow'+1.96*`se_BMIint_ow')
+
+.                 local BMIint_ow= string(exp(`m_BMIint_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ow',"%9.2f")+"-"+string(`Uci_BMIint_ow',"%9.2f")+")"  
+
+.         lincom 3.BMIlate_cat
+
+ ( 1)  3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5554782   .2642837     2.10   0.036     .0374917    1.073465
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ob = r(estimate)
+
+.                 local se_BMIint_ob = r(se)
+
+.                 local Lci_BMIint_ob = exp(`m_BMIint_ob'-1.96*`se_BMIint_ob')
+
+.                 local Uci_BMIint_ob = exp(`m_BMIint_ob'+1.96*`se_BMIint_ob')
+
+.                 local BMIint_ob= string(exp(`m_BMIint_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ob',"%9.2f")+"-"+string(`Uci_BMIint_ob',"%9.2f")+")"  
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1806965   .1290594     1.40   0.161    -.0722554    .4336483
+------------------------------------------------------------------------------
+
+.                 local m_PRSint = r(estimate)
+
+.                 local se_PRSint = r(se)
+
+.                 local Lci_PRSint = exp(`m_PRSint'-1.96*`se_PRSint')
+
+.                 local Uci_PRSint = exp(`m_PRSint'+1.96*`se_PRSint')
+
+.                 local PRSint= string(exp(`m_PRSint'),"%9.2f")+" ("+string(`Lc
+> i_PRSint',"%9.2f")+"-"+string(`Uci_PRSint',"%9.2f")+")"   
+
+.         lincom 2.BMIlate_cat#z_PRS_BMI_PCadj
+
+ ( 1)  2.BMIlate_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.0977729   .1588486    -0.62   0.538    -.4091104    .2135647
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ow = r(estimate)
+
+.                 local se_BMI_PRSint_ow = r(se)
+
+.                 local Lci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'-1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local Uci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'+1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local BMI_PRSint_ow= string(exp(`m_BMI_PRSint_ow'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ow',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ow',"%9.2f
+> ")+")"   
+
+.         lincom 3.BMIlate_cat#z_PRS_BMI_PCadj
+
+ ( 1)  3.BMIlate_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.5826093   .2533116    -2.30   0.021    -1.079091   -.0861277
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ob = r(estimate)
+
+.                 local se_BMI_PRSint_ob = r(se)
+
+.                 local Lci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'-1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local Uci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'+1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local BMI_PRSint_ob= string(exp(`m_BMI_PRSint_ob'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ob',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ob',"%9.2f
+> ")+")"   
+
+.         
+.         /// By tertiles of PRSbmi
+>         stcox i.tert_PRS_BMI i.tert_PRS_BMI#i.BMIlate_cat educ sex smoke if(z
+> ygosity!=1), strata(pairid)
+
+         Failure _d: reg_CVDany==1
+   Analysis time _t: age_exit
+  Enter on or after: time BMIlate_age
+        ID variable: twinnr
+
+Iteration 0:   log likelihood = -348.65303
+Iteration 1:   log likelihood = -320.65482
+Iteration 2:   log likelihood = -320.42285
+Iteration 3:   log likelihood = -320.42268
+Refining estimates:
+Iteration 0:   log likelihood = -320.42268
+
+Stratified Cox regression with Breslow method for ties
+Strata variable: pairid
+
+No. of subjects =  2,470                                Number of obs =  2,470
+No. of failures =    690
+Time at risk    = 23,517
+                                                        LR chi2(11)   =  56.46
+Log likelihood = -320.42268                             Prob > chi2   = 0.0000
+
+-------------------------------------------------------------------------------
+-----------
+                      _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf
+> . interval]
+-------------------------+-----------------------------------------------------
+-----------
+            tert_PRS_BMI |
+                      2  |   1.279843   .3089007     1.02   0.307     .7974662 
+>    2.054004
+                      3  |   1.447542   .4354665     1.23   0.219     .8027174 
+>    2.610355
+                         |
+tert_PRS_BMI#BMIlate_cat |
+                    1 2  |   1.505902   .3630536     1.70   0.089     .9388209 
+>    2.415519
+                    1 3  |   3.383912    1.83449     2.25   0.025     1.169404 
+>    9.792044
+                    2 2  |   .9174322   .2316556    -0.34   0.733     .5592962 
+>    1.504895
+                    2 3  |   .8658924    .346129    -0.36   0.719     .3955554 
+>    1.895486
+                    3 2  |   1.366441   .3931871     1.09   0.278     .7774308 
+>    2.401708
+                    3 3  |   1.243021    .428564     0.63   0.528     .6324183 
+>    2.443163
+                         |
+                    educ |   .7104793    .129202    -1.88   0.060     .4974607 
+>    1.014715
+                     sex |   .4326695   .0612842    -5.91   0.000     .3277859 
+>    .5711133
+                   smoke |   1.022685   .1628649     0.14   0.888     .7484899 
+>    1.397326
+-------------------------------------------------------------------------------
+-----------
+
+.         /// 1st quartile
+>         lincom 1.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  1b.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4093917   .2410872     1.70   0.089    -.0631306     .881914
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ow = r(estimate)
+
+.                 local se_PRS_c1_ow = r(se)
+
+.                 local Lci_PRS_c1_ow = exp(`m_PRS_c1_ow'-1.96*`se_PRS_c1_ow')
+
+.                 local Uci_PRS_c1_ow = exp(`m_PRS_c1_ow'+1.96*`se_PRS_c1_ow')
+
+.                 local PRS_c1_ow= string(exp(`m_PRS_c1_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ow',"%9.2f")+"-"+string(`Uci_PRS_c1_ow',"%9.2f")+")"  
+
+.         lincom 1.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  1b.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   1.219032   .5421211     2.25   0.025     .1564946     2.28157
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ob = r(estimate)
+
+.                 local se_PRS_c1_ob = r(se)
+
+.                 local Lci_PRS_c1_ob = exp(`m_PRS_c1_ob'-1.96*`se_PRS_c1_ob')
+
+.                 local Uci_PRS_c1_ob = exp(`m_PRS_c1_ob'+1.96*`se_PRS_c1_ob')
+
+.                 local PRS_c1_ob= string(exp(`m_PRS_c1_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ob',"%9.2f")+"-"+string(`Uci_PRS_c1_ob',"%9.2f")+")"  
+
+.         /// 2nd quartile
+> lincom 2.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  2.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.0861766   .2525044    -0.34   0.733    -.5810761    .4087228
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ow = r(estimate)
+
+.                 local se_PRS_c2_ow = r(se)
+
+.                 local Lci_PRS_c2_ow = exp(`m_PRS_c2_ow'-1.96*`se_PRS_c2_ow')
+
+.                 local Uci_PRS_c2_ow = exp(`m_PRS_c2_ow'+1.96*`se_PRS_c2_ow')
+
+.                 local PRS_c2_ow= string(exp(`m_PRS_c2_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ow',"%9.2f")+"-"+string(`Uci_PRS_c2_ow',"%9.2f")+")"  
+
+.         lincom 2.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  2.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.1439946   .3997368    -0.36   0.719    -.9274643    .6394751
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ob = r(estimate)
+
+.                 local se_PRS_c2_ob = r(se)
+
+.                 local Lci_PRS_c2_ob = exp(`m_PRS_c2_ob'-1.96*`se_PRS_c2_ob')
+
+.                 local Uci_PRS_c2_ob = exp(`m_PRS_c2_ob'+1.96*`se_PRS_c2_ob')
+
+.                 local PRS_c2_ob= string(exp(`m_PRS_c2_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ob',"%9.2f")+"-"+string(`Uci_PRS_c2_ob',"%9.2f")+")"  
+
+.         /// 3rd quartile
+>         lincom 3.tert_PRS_BMI#2.BMIlate_cat
+
+ ( 1)  3.tert_PRS_BMI#2.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3122097   .2877453     1.09   0.278    -.2517607    .8761802
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ow = r(estimate)
+
+.                 local se_PRS_c3_ow = r(se)
+
+.                 local Lci_PRS_c3_ow = exp(`m_PRS_c3_ow'-1.96*`se_PRS_c3_ow')
+
+.                 local Uci_PRS_c3_ow = exp(`m_PRS_c3_ow'+1.96*`se_PRS_c3_ow')
+
+.                 local PRS_c3_ow= string(exp(`m_PRS_c3_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ow',"%9.2f")+"-"+string(`Uci_PRS_c3_ow',"%9.2f")+")"  
+
+.         lincom 3.tert_PRS_BMI#3.BMIlate_cat
+
+ ( 1)  3.tert_PRS_BMI#3.BMIlate_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2175447   .3447762     0.63   0.528    -.4582042    .8932936
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ob = r(estimate)
+
+.                 local se_PRS_c3_ob = r(se)
+
+.                 local Lci_PRS_c3_ob = exp(`m_PRS_c3_ob'-1.96*`se_PRS_c3_ob')
+
+.                 local Uci_PRS_c3_ob = exp(`m_PRS_c3_ob'+1.96*`se_PRS_c3_ob')
+
+.                 local PRS_c3_ob= string(exp(`m_PRS_c3_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ob',"%9.2f")+"-"+string(`Uci_PRS_c3_ob',"%9.2f")+")"  
+
+.                 
+.         post coxreg_cvd ("Within DZ") ("`BMIind_ow'") ("`BMIind_ob'") ("`PRSi
+> nd'") ("`BMIjnt_ow'") ("`BMIjnt_ob'") ("`PRSjnt'") ///
+>                                         ("`BMIint_ow'") ("`BMIint_ob'") ("`PR
+> Sint'") ("`BMI_PRSint_ow'") ("`BMI_PRSint_ob'") ///
+>                                         ("`PRS_c1_ow'") ("`PRS_c2_ow'")  ("`P
+> RS_c3_ow'") ("`PRS_c1_ob'") ("`PRS_c2_ob'") ("`PRS_c3_ob'") 
+
+. 
+. postclose coxreg_cvd
+
+. 
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    ///// SAVING THE LOG/OUTPUT /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. log close
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ closed on:  21 Dec 2022, 13:47:39
+-------------------------------------------------------------------------------

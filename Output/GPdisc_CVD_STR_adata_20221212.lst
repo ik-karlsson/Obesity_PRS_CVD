@@ -1,0 +1,80 @@
+                                        The SAS System      11:58 Sunday, December 18, 2022  91
+
+                                      The FREQ Procedure
+
+                                                      Cumulative    Cumulative
+                 study       Frequency     Percent     Frequency      Percent
+                 ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                 GOSH            2052       10.60          2052        10.60
+                 SALT-Y          6403       33.07          8455        43.67
+                 TwinGene       10906       56.33         19361       100.00
+                                        The SAS System      11:58 Sunday, December 18, 2022  92
+
+                                      The MEANS Procedure
+
+    Variable              N            Mean         Std Dev         Minimum         Maximum
+    ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+    reg_CVDany_age     4746      68.7920354      12.0954558      17.0000000     102.0000000
+    reg_CVDns_age      3731      68.9614044      12.0871993      26.0000000     102.0000000
+    reg_STROKE_age     1757      72.0404098      12.0476023      17.0000000      98.0000000
+    ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                        The SAS System      11:58 Sunday, December 18, 2022  93
+
+                                      The FREQ Procedure
+
+                               Table of reg_CVDany by reg_CVDns
+
+                              reg_CVDany     reg_CVDns
+
+                              Frequency‚       0‚       1‚  Total
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                                     0 ‚  14565 ‚      0 ‚  14565
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                                     1 ‚   1015 ‚   3731 ‚   4746
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                              Total       15580     3731    19311
+
+
+                               Table of reg_CVDany by reg_STROKE
+
+                              reg_CVDany     reg_STROKE
+
+                              Frequency‚       0‚       1‚  Total
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                                     0 ‚  14565 ‚      0 ‚  14565
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                                     1 ‚   2989 ‚   1757 ‚   4746
+                              ƒƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆƒƒƒƒƒƒƒƒˆ
+                              Total       17554     1757    19311
+                                        The SAS System      11:58 Sunday, December 18, 2022  94
+
+                                      The FREQ Procedure
+
+                                                     Cumulative
+                                educ    Frequency     Frequency
+                                ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                   .         198             .
+                                   0        4366          4366
+                                   1       14728         19094
+
+                                    Frequency Missing = 198
+
+
+                                                     Cumulative
+                               smoke    Frequency     Frequency
+                               ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                   .         249             .
+                                   0        7549          7549
+                                   1       11494         19043
+
+                                    Frequency Missing = 249
+                                        The SAS System      11:58 Sunday, December 18, 2022  95
+
+                                      The MEANS Procedure
+
+     Variable           N            Mean         Std Dev         Minimum         Maximum
+     ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+     BMI_age        18155      53.2916001       8.5575972      40.0000000      93.0000000
+     BMImid_age     16301      52.2126250       5.5101303      40.0000000      64.0000000
+     BMIlate_age     6788      72.0583382       5.1893695      65.0000000      94.0000000
+     ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
