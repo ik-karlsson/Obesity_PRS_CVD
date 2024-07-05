@@ -1,0 +1,2034 @@
+-------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ opened on:  28 Jan 2023, 20:24:56
+
+. set more off
+
+. 
+. use "P:\Dementia_IK\SfoEpi\GPdisc_CVD\Data\GOSH\GPdisc_CVD_STR_adata_20221212
+> .dta", clear
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    // DATA MANAGEMENT //
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. /// Dropping those missing midlife BMI
+> drop if BMImid==.
+(1,865 observations deleted)
+
+. 
+. /// CAtegorize BMI
+> gen BMImid_cat=1 if BMImid>=18.5 & BMImid <25
+(7,055 missing values generated)
+
+. replace BMImid_cat=2 if BMImid>=25 & BMImid <30
+(5,854 real changes made)
+
+. replace BMImid_cat=3 if BMImid!=. & BMImid >=30
+(1,201 real changes made)
+
+. 
+. /// Categorize the PRSs
+> egen PRS_BMI_grpm= mean(PRS_BMI_PCadj), by(study)
+
+. egen PRS_BMI_grpsd= sd(PRS_BMI_PCadj), by(study)
+
+. gen z_PRS_BMI_PCadj= (PRS_BMI_PCadj-PRS_BMI_grpm)/PRS_BMI_grpsd
+
+. 
+. // Tertiles
+. xtile tert_PRS_BMI = z_PRS_BMI_PCadj, nquantiles(3)
+
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                         ///// SETTING UP THE 
+> SURVIVAL DATA, BMI MID /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Create crtime as CVD dx, death, or alive
+. generate crtime = reg_CVDany_age if (reg_CVDany_age <= age_death) // uses imp
+> licit ordering of missing, gah
+(12,664 missing values generated)
+
+. replace  crtime = age_death if (reg_CVDany_age > age_death) // uses implicit 
+> ordering of missing, gah
+(1,152 real changes made)
+
+. replace  crtime = lastage if missing(reg_CVDany_age) & missing(age_death)
+(11,512 real changes made)
+
+. generate crstatus = 1 if (reg_CVDany_age <= age_death) // uses implicit order
+> ing of missing, gah
+(1,152 missing values generated)
+
+. replace  crstatus = 2 if (reg_CVDany_age > age_death)  // uses implicit order
+> ing of missing, gah
+(1,152 real changes made)
+
+. replace  crstatus = 0 if missing(reg_CVDany_age) & missing(age_death)
+(11,512 real changes made)
+
+. tab crstatus, mi
+
+   crstatus |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |     11,512       71.40       71.40
+          1 |      3,459       21.45       92.85
+          2 |      1,152        7.15      100.00
+------------+-----------------------------------
+      Total |     16,123      100.00
+
+. /* crstatus |      Freq.     Percent        Cum.
+> ------------+-----------------------------------
+>           0 |     11,512       71.40       71.40
+>           1 |      3,459       21.45       92.85
+>           2 |      1,152        7.15      100.00
+> ------------+-----------------------------------
+>       Total |     16,123      100.00
+> */
+. 
+. // Setting up the competing risk data with CVD as outcome, and death as the c
+> ompeting event
+. // You need to tell stata the following:
+. // 1. When you start following individuals: enter(age)
+. // 2. When you stop following them: crtime (created above)
+. // 3. What the main event/failure is: failure(crstatus==1) (the dementia/deat
+> h variable created)
+. stset crtime, failure(crstatus==1) id(twinnr) enter(BMImid_age)
+
+Survival-time data settings
+
+           ID variable: twinnr
+         Failure event: crstatus==1
+Observed time interval: (crtime[_n-1], crtime]
+     Enter on or after: time BMImid_age
+     Exit on or before: failure
+
+--------------------------------------------------------------------------
+     16,123  total observations
+        337  observations end on or before enter()
+--------------------------------------------------------------------------
+     15,786  observations remaining, representing
+     15,786  subjects
+      3,123  failures in single-failure-per-subject data
+    278,705  total analysis time at risk and under observation
+                                                At risk from t =         0
+                                     Earliest observed entry t =        40
+                                          Last observed exit t =       104
+
+. /*------------------------------------------------------------------------
+>      16,123  total observations
+>         337  observations end on or before enter()
+> --------------------------------------------------------------------------
+>      15,786  observations remaining, representing
+>      15,786  subjects
+>       3,123  failures in single-failure-per-subject data
+>     278,705  total analysis time at risk and under observation
+>                                                 At risk from t =         0
+>                                      Earliest observed entry t =        40
+>                                           Last observed exit t =       104   
+>    */
+. 
+. list twinnr BMImid_age age_death reg_CVDany_age crtime lastage reg_CVDany crs
+> tatus _t0 _t _d _st in 1/30, noobs
+
+  +----------------------------------------------------------------------------
+-----------------------------+
+  | twinnr   BMImid~e   age_de~h   re~y_age   crtime   lastage   reg_CV~y   crs
+> tatus   _t0    _t   _d   _st |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |    241         47         89         89       89        89          1      
+>     1    47    89    1     1 |
+  |    242         47          .         82       82        90          1      
+>     1    47    82    1     1 |
+  |   1642         40        100          .      100       100          0      
+>     2    40   100    0     1 |
+  |   2322         47         82         58       58        82          1      
+>     1    47    58    1     1 |
+  |   2381         47          .          .       90        90          0      
+>     0    47    90    0     1 |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |   2661         47          .         66       66        90          1      
+>     1    47    66    1     1 |
+  |  11501         63         96         94       94        96          1      
+>     1    63    94    1     1 |
+  |  12001         40        100          .      100       100          0      
+>     2    40   100    0     1 |
+  |  13122         62         98          .       98        98          0      
+>     2    62    98    0     1 |
+  |  16591         40        102          .      102       102          0      
+>     2    40   102    0     1 |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |  16592         40         90          .       90        90          0      
+>     2    40    90    0     1 |
+  |  17831         40         99          .       99        99          0      
+>     2    40    99    0     1 |
+  |  17832         40         97          .       97        97          0      
+>     2    40    97    0     1 |
+  |  19101         40         97         97       97        97          1      
+>     1    40    97    1     1 |
+  |  19701         59         95          .       95        95          0      
+>     2    59    95    0     1 |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |  19702         59         94          .       94        94          0      
+>     2    59    94    0     1 |
+  |  21121         47         81         63       63        81          1      
+>     1    47    63    1     1 |
+  |  21122         47         84         71       71        84          1      
+>     1    47    71    1     1 |
+  |  21141         47         82         82       82        82          1      
+>     1    47    82    1     1 |
+  |  21142         47         80         72       72        80          1      
+>     1    47    72    1     1 |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |  21191         47          .          .       90        90          0      
+>     0    47    90    0     1 |
+  |  21192         47          .         70       70        90          1      
+>     1    47    70    1     1 |
+  |  21661         47         88         76       76        88          1      
+>     1    47    76    1     1 |
+  |  21662         47          .         85       85        90          1      
+>     1    47    85    1     1 |
+  |  21701         47          .         74       74        90          1      
+>     1    47    74    1     1 |
+  |----------------------------------------------------------------------------
+-----------------------------|
+  |  21702         47          .         84       84        90          1      
+>     1    47    84    1     1 |
+  |  21711         47         81         70       70        81          1      
+>     1    47    70    1     1 |
+  |  21712         47         86         76       76        86          1      
+>     1    47    76    1     1 |
+  |  21801         61         89          .       89        89          0      
+>     2    61    89    0     1 |
+  |  21802         47         75          .       75        75          0      
+>     2    47    75    0     1 |
+  +----------------------------------------------------------------------------
+-----------------------------+
+
+. 
+. stdes
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+                                   |-------------- Per subject --------------|
+Category                   Total        Mean         Min     Median        Max
+------------------------------------------------------------------------------
+Number of subjects         15786   
+Number of records          15786           1           1          1          1
+
+Entry time (first)                  52.08419          40         52         64
+Exit time (final)                   69.73939          45         69        104
+
+Subjects with gap              0   
+Time on gap                    0           .           .          .          .
+Time at risk              278705     17.6552           1         16         62
+
+Failures                    3123    .1978335           0          0          1
+------------------------------------------------------------------------------
+
+. /*
+>          Failure _d: crstatus==1
+>    Analysis time _t: crtime
+>   Enter on or after: time BMImid_age
+>         ID variable: twinnr
+> 
+>                                    |-------------- Per subject --------------
+> |
+> Category                   Total        Mean         Min     Median        Ma
+> x
+> -----------------------------------------------------------------------------
+> -
+> Number of subjects         15786   
+> Number of records          15786           1           1          1          
+> 1
+> 
+> Entry time (first)                  52.08419          40         52         6
+> 4
+> Exit time (final)                   69.73939          45         69        10
+> 4
+> 
+> Subjects with gap              0   
+> Time on gap                    0           .           .          .          
+> .
+> Time at risk              278705     17.6552           1         16         6
+> 2
+> 
+> Failures                    3123    .1978335           0          0          
+> 1
+> -----------------------------------------------------------------------------
+> -
+> */
+. 
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                         /////
+>  SURVIVAL ANALYSES /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. // Numeric studyn
+. encode study, gen(studyn)
+
+. tab study studyn, mi
+
+           |              studyn
+     study |      GOSH     SALT-Y   TwinGene |     Total
+-----------+---------------------------------+----------
+      GOSH |     1,368          0          0 |     1,368 
+    SALT-Y |         0      5,393          0 |     5,393 
+  TwinGene |         0          0      9,362 |     9,362 
+-----------+---------------------------------+----------
+     Total |     1,368      5,393      9,362 |    16,123 
+
+. 
+. cap postclose coxreg_cvd
+
+.         postfile coxreg_cvd str26  (sex BMIind_ow BMIind_ob PRSind BMIjnt_ow 
+> BMIjnt_ob PRSjnt ///
+>                                                                 BMIint_ow BMI
+> int_ob PRSint BMI_PRSint_ow BMI_PRSint_ob ///
+>                                                                 PRS_c1_ow PRS
+> _c2_ow PRS_c3_ow PRS_c1_ob PRS_c2_ob PRS_c3_ob) ///
+>                                                                 using P:\Deme
+> ntia_IK\SfoEpi\GPdisc_CVD\Output\GOSH\GPdisc_CVD_STR_analyses_20230119_comp_r
+> isk_mid_CVDany.dta, replace
+
+.         set more off
+
+.         // BMI, categorical
+.         stcrreg i.BMImid_cat educ sex smoke i.studyn, compete(crstatus==2) vc
+> e(cluster pairid)
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -26726.764  
+Iteration 1:   log pseudolikelihood = -26719.682  
+Iteration 2:   log pseudolikelihood = -26719.678  
+Iteration 3:   log pseudolikelihood = -26719.678  
+
+Competing-risks regression                        No. of obs      =     15,786
+                                                  No. of subjects =     15,786
+Failure event:   crstatus == 1                    No. failed      =      3,123
+Competing event: crstatus == 2                    No. competing   =      1,151
+                                                  No. censored    =     11,512
+
+                                                  Wald chi2(7)    =     346.74
+Log pseudolikelihood = -26719.678                 Prob > chi2     =     0.0000
+
+                            (Std. err. adjusted for 10,642 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t |        SHR   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.296308    .049718     6.77   0.000     1.202435     1.39751
+          3  |   1.657866    .114923     7.29   0.000     1.447252    1.899129
+             |
+        educ |   .9275563   .0380062    -1.84   0.066     .8559781     1.00512
+         sex |   .6150302   .0233704   -12.79   0.000     .5708892    .6625841
+       smoke |   1.238277   .0472308     5.60   0.000     1.149082    1.334396
+             |
+      studyn |
+     SALT-Y  |     .85243   .0557583    -2.44   0.015     .7498609    .9690289
+   TwinGene  |   .9277817   .0442676    -1.57   0.116     .8449521    1.018731
+------------------------------------------------------------------------------
+
+.         lincom 2.BMImid_cat
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2595203   .0383535     6.77   0.000     .1843488    .3346919
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ow = r(estimate)
+
+.                 local se_BMIind_ow = r(se)
+
+.                 local Lci_BMIind_ow = exp(`m_BMIind_ow'-1.96*`se_BMIind_ow')
+
+.                 local Uci_BMIind_ow = exp(`m_BMIind_ow'+1.96*`se_BMIind_ow')
+
+.                 local p_BMIind_ow = r(p) 
+
+.                 local BMIind_ow= string(exp(`m_BMIind_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ow',"%9.2f")+"-"+string(`Uci_BMIind_ow',"%9.2f")+")"+", p="+st
+> ring(`p_BMIind_ow',"%9.3f")
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5055311   .0693198     7.29   0.000     .3696668    .6413954
+------------------------------------------------------------------------------
+
+.                 local m_BMIind_ob = r(estimate)
+
+.                 local se_BMIind_ob = r(se)
+
+.                 local Lci_BMIind_ob = exp(`m_BMIind_ob'-1.96*`se_BMIind_ob')
+
+.                 local Uci_BMIind_ob = exp(`m_BMIind_ob'+1.96*`se_BMIind_ob')
+
+.                 local p_BMIind_ob = r(p)
+
+.                 local BMIind_ob= string(exp(`m_BMIind_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIind_ob',"%9.2f")+"-"+string(`Uci_BMIind_ob',"%9.2f")+")"+", p="+st
+> ring(`p_BMIind_ob',"%9.3f")
+
+.                 
+.         // PRSbmi model
+.         stcrreg z_PRS_BMI_PCadj educ sex smoke i.studyn, compete(crstatus==2)
+>  vce(cluster pairid) 
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -26750.901  
+Iteration 1:   log pseudolikelihood = -26744.475  
+Iteration 2:   log pseudolikelihood = -26744.472  
+Iteration 3:   log pseudolikelihood = -26744.472  
+
+Competing-risks regression                        No. of obs      =     15,786
+                                                  No. of subjects =     15,786
+Failure event:   crstatus == 1                    No. failed      =      3,123
+Competing event: crstatus == 2                    No. competing   =      1,151
+                                                  No. censored    =     11,512
+
+                                                  Wald chi2(6)    =     293.58
+Log pseudolikelihood = -26744.472                 Prob > chi2     =     0.0000
+
+                               (Std. err. adjusted for 10,642 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+z_PRS_BMI_PCadj |   1.107371   .0205913     5.48   0.000     1.067739    1.1484
+> 73
+           educ |   .9187305   .0374948    -2.08   0.038     .8481043    .99523
+> 82
+            sex |   .5909183   .0221544   -14.03   0.000     .5490536    .63597
+> 53
+          smoke |   1.217481    .046389     5.16   0.000     1.129872    1.3118
+> 83
+                |
+         studyn |
+        SALT-Y  |   .8576606   .0556974    -2.36   0.018     .7551575    .97407
+> 73
+      TwinGene  |   .9202618   .0433485    -1.76   0.078     .8391044    1.0092
+> 69
+-------------------------------------------------------------------------------
+--
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1019885   .0185948     5.48   0.000     .0655434    .1384335
+------------------------------------------------------------------------------
+
+.                 local m_PRSind = r(estimate)
+
+.                 local se_PRSind = r(se)
+
+.                 local Lci_PRSind = exp(`m_PRSind'-1.96*`se_PRSind')
+
+.                 local Uci_PRSind = exp(`m_PRSind'+1.96*`se_PRSind')
+
+.                 local p_PRSind = r(p)
+
+.                 local PRSind= string(exp(`m_PRSind'),"%9.2f")+" ("+string(`Lc
+> i_PRSind',"%9.2f")+"-"+string(`Uci_PRSind',"%9.2f")+")"+", p="+string(`p_PRSi
+> nd',"%9.3f")
+
+. 
+.         // BMI + PRS model
+.         stcrreg i.BMImid_cat z_PRS_BMI_PCadj educ sex smoke i.studyn, compete
+> (crstatus==2) vce(cluster pairid) 
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -26722.444  
+Iteration 1:   log pseudolikelihood = -26715.167  
+Iteration 2:   log pseudolikelihood = -26715.164  
+Iteration 3:   log pseudolikelihood = -26715.164  
+
+Competing-risks regression                        No. of obs      =     15,786
+                                                  No. of subjects =     15,786
+Failure event:   crstatus == 1                    No. failed      =      3,123
+Competing event: crstatus == 2                    No. competing   =      1,151
+                                                  No. censored    =     11,512
+
+                                                  Wald chi2(8)    =     354.07
+Log pseudolikelihood = -26715.164                 Prob > chi2     =     0.0000
+
+                               (Std. err. adjusted for 10,642 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+     BMImid_cat |
+             2  |   1.261274   .0496449     5.90   0.000     1.167631    1.3624
+> 28
+             3  |    1.56586   .1130908     6.21   0.000     1.359179    1.8039
+> 69
+                |
+z_PRS_BMI_PCadj |    1.05883   .0206939     2.92   0.003     1.019037    1.1001
+> 76
+           educ |   .9328519   .0382104    -1.70   0.090     .8608882    1.0108
+> 31
+            sex |   .6104219    .023247   -12.96   0.000     .5665175    .65772
+> 87
+          smoke |   1.228746    .046965     5.39   0.000     1.140059    1.3243
+> 31
+                |
+         studyn |
+        SALT-Y  |   .8501105   .0554994    -2.49   0.013     .7480054    .96615
+> 31
+      TwinGene  |   .9241874   .0439826    -1.66   0.098     .8418813     1.014
+> 54
+-------------------------------------------------------------------------------
+--
+
+.         lincom 2.BMImid_cat
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2321226   .0393609     5.90   0.000     .1549767    .3092685
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ow = r(estimate)
+
+.                 local se_BMIjnt_ow = r(se)
+
+.                 local Lci_BMIjnt_ow = exp(`m_BMIjnt_ow'-1.96*`se_BMIjnt_ow')
+
+.                 local Uci_BMIjnt_ow = exp(`m_BMIjnt_ow'+1.96*`se_BMIjnt_ow')
+
+.                 local p_BMIjnt_ow = r(p)
+
+.                 local BMIjnt_ow= string(exp(`m_BMIjnt_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ow',"%9.2f")+"-"+string(`Uci_BMIjnt_ow',"%9.2f")+")"+", p="+st
+> ring(`p_BMIjnt_ow',"%9.3f") 
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4484351   .0722228     6.21   0.000      .306881    .5899893
+------------------------------------------------------------------------------
+
+.                 local m_BMIjnt_ob = r(estimate)
+
+.                 local se_BMIjnt_ob = r(se)
+
+.                 local Lci_BMIjnt_ob = exp(`m_BMIjnt_ob'-1.96*`se_BMIjnt_ob')
+
+.                 local Uci_BMIjnt_ob = exp(`m_BMIjnt_ob'+1.96*`se_BMIjnt_ob')
+
+.                 local p_BMIjnt_ob = r(p)
+
+.                 local BMIjnt_ob= string(exp(`m_BMIjnt_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIjnt_ob',"%9.2f")+"-"+string(`Uci_BMIjnt_ob',"%9.2f")+")"+", p="+st
+> ring(`p_BMIjnt_ob',"%9.3f") 
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0571642   .0195442     2.92   0.003     .0188584    .0954701
+------------------------------------------------------------------------------
+
+.                 local m_PRSjnt = r(estimate)
+
+.                 local se_PRSjnt = r(se)
+
+.                 local Lci_PRSjnt = exp(`m_PRSjnt'-1.96*`se_PRSjnt')
+
+.                 local Uci_PRSjnt = exp(`m_PRSjnt'+1.96*`se_PRSjnt')
+
+.                 local p_PRSjnt = r(p)
+
+.                 local PRSjnt= string(exp(`m_PRSjnt'),"%9.2f")+" ("+string(`Lc
+> i_PRSjnt',"%9.2f")+"-"+string(`Uci_PRSjnt',"%9.2f")+")"+", p="+string(`p_PRSj
+> nt',"%9.3f") 
+
+.                 
+.         // Interaction model
+.         stcrreg i.BMImid_cat##c.z_PRS_BMI_PCadj educ sex smoke i.studyn, comp
+> ete(crstatus==2) vce(cluster pairid) 
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -26720.311  
+Iteration 1:   log pseudolikelihood = -26712.868  
+Iteration 2:   log pseudolikelihood = -26712.864  
+Iteration 3:   log pseudolikelihood = -26712.864  
+
+Competing-risks regression                        No. of obs      =     15,786
+                                                  No. of subjects =     15,786
+Failure event:   crstatus == 1                    No. failed      =      3,123
+Competing event: crstatus == 2                    No. competing   =      1,151
+                                                  No. censored    =     11,512
+
+                                                  Wald chi2(10)   =     359.23
+Log pseudolikelihood = -26712.864                 Prob > chi2     =     0.0000
+
+                                            (Std. err. adjusted for 10,642 clus
+> ters in pairid)
+-------------------------------------------------------------------------------
+---------------
+                             |               Robust
+                          _t |        SHR   std. err.      z    P>|z|     [95% 
+> con                                                                          
+>    f. interval]
+-----------------------------+-------------------------------------------------
+---------------
+                  BMImid_cat |
+                          2  |    1.25346   .0495576     5.71   0.000     1.159
+> 997                                                                          
+>        1.354454
+                          3  |   1.719313   .1400096     6.65   0.000     1.465
+> 679                                                                          
+>        2.016839
+                             |
+             z_PRS_BMI_PCadj |   1.070209    .028386     2.56   0.011     1.015
+> 995                                                                          
+>        1.127316
+                             |
+BMImid_cat#c.z_PRS_BMI_PCadj |
+                          2  |   1.004554   .0408761     0.11   0.911     .9275
+> 502                                                                          
+>        1.087951
+                          3  |   .8682035   .0635046    -1.93   0.053     .7522
+> 471                                                                          
+>        1.002034
+                             |
+                        educ |   .9329941   .0382362    -1.69   0.091     .8609
+> 833                                                                          
+>        1.011028
+                         sex |   .6099225   .0232297   -12.98   0.000      .566
+> 051                                                                          
+>        .6571943
+                       smoke |   1.226571   .0468734     5.34   0.000     1.138
+> 056                                                                          
+>        1.321969
+                             |
+                      studyn |
+                     SALT-Y  |   .8508204   .0555369    -2.47   0.013     .7486
+> 452                                                                          
+>        .9669404
+                   TwinGene  |   .9255071   .0440429    -1.63   0.104     .8430
+> 881                                                                          
+>        1.015983
+-------------------------------------------------------------------------------
+---------------
+
+.         lincom 2.BMImid_cat
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2259079   .0395366     5.71   0.000     .1484175    .3033982
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ow = r(estimate)
+
+.                 local se_BMIint_ow = r(se)
+
+.                 local Lci_BMIint_ow = exp(`m_BMIint_ow'-1.96*`se_BMIint_ow')
+
+.                 local Uci_BMIint_ow = exp(`m_BMIint_ow'+1.96*`se_BMIint_ow')
+
+.                 local p_BMIint_ow = r(p)
+
+.                 local BMIint_ow= string(exp(`m_BMIint_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ow',"%9.2f")+"-"+string(`Uci_BMIint_ow',"%9.2f")+")"+", p="+st
+> ring(`p_BMIint_ow',"%9.3f")  
+
+.         lincom 3.BMImid_cat
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .541925   .0814335     6.65   0.000     .3823184    .7015317
+------------------------------------------------------------------------------
+
+.                 local m_BMIint_ob = r(estimate)
+
+.                 local se_BMIint_ob = r(se)
+
+.                 local Lci_BMIint_ob = exp(`m_BMIint_ob'-1.96*`se_BMIint_ob')
+
+.                 local Uci_BMIint_ob = exp(`m_BMIint_ob'+1.96*`se_BMIint_ob')
+
+.                 local p_BMIint_ob = r(p)
+
+.                 local BMIint_ob= string(exp(`m_BMIint_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_BMIint_ob',"%9.2f")+"-"+string(`Uci_BMIint_ob',"%9.2f")+")"+", p="+st
+> ring(`p_BMIint_ob',"%9.3f")  
+
+.         lincom z_PRS_BMI_PCadj 
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0678541   .0265238     2.56   0.011     .0158684    .1198398
+------------------------------------------------------------------------------
+
+.                 local m_PRSint = r(estimate)
+
+.                 local se_PRSint = r(se)
+
+.                 local Lci_PRSint = exp(`m_PRSint'-1.96*`se_PRSint')
+
+.                 local Uci_PRSint = exp(`m_PRSint'+1.96*`se_PRSint')
+
+.                 local p_PRSint = r(p)
+
+.                 local PRSint= string(exp(`m_PRSint'),"%9.2f")+" ("+string(`Lc
+> i_PRSint',"%9.2f")+"-"+string(`Uci_PRSint',"%9.2f")+")"+", p="+string(`p_PRSi
+> nt',"%9.3f")   
+
+.         lincom 2.BMImid_cat#z_PRS_BMI_PCadj
+
+ ( 1)  [eq1]2.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0045441   .0406908     0.11   0.911    -.0752084    .0842965
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ow = r(estimate)
+
+.                 local se_BMI_PRSint_ow = r(se)
+
+.                 local Lci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'-1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local Uci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'+1.96*`se_BMI_
+> PRSint_ow')
+
+.                 local p_BMI_PRSint_ow = r(p)
+
+.                 local BMI_PRSint_ow= string(exp(`m_BMI_PRSint_ow'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ow',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ow',"%9.2f
+> ")+")"+", p="+string(`p_BMI_PRSint_ow',"%9.3f")   
+
+.         lincom 3.BMImid_cat#z_PRS_BMI_PCadj
+
+ ( 1)  [eq1]3.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.1413292   .0731448    -1.93   0.053    -.2846904    .0020321
+------------------------------------------------------------------------------
+
+.                 local m_BMI_PRSint_ob = r(estimate)
+
+.                 local se_BMI_PRSint_ob = r(se)
+
+.                 local Lci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'-1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local Uci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'+1.96*`se_BMI_
+> PRSint_ob')
+
+.                 local p_BMI_PRSint_ob = r(p)
+
+.                 local BMI_PRSint_ob= string(exp(`m_BMI_PRSint_ob'),"%9.2f")+"
+>  ("+string(`Lci_BMI_PRSint_ob',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ob',"%9.2f
+> ")+")"+", p="+string(`p_BMI_PRSint_ob',"%9.3f")   
+
+.         
+.         /// By tertiles of PRSbmi
+>         stcrreg i.tert_PRS_BMI i.tert_PRS_BMI#i.BMImid_cat educ sex smoke i.s
+> tudyn, compete(crstatus==2) vce(cluster pairid)
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -26721.117  
+Iteration 1:   log pseudolikelihood = -26713.648  
+Iteration 2:   log pseudolikelihood = -26713.644  
+Iteration 3:   log pseudolikelihood = -26713.644  
+
+Competing-risks regression                        No. of obs      =     15,786
+                                                  No. of subjects =     15,786
+Failure event:   crstatus == 1                    No. failed      =      3,123
+Competing event: crstatus == 2                    No. competing   =      1,151
+                                                  No. censored    =     11,512
+
+                                                  Wald chi2(13)   =     359.16
+Log pseudolikelihood = -26713.644                 Prob > chi2     =     0.0000
+
+                                       (Std. err. adjusted for 10,642 clusters 
+> in pairid)
+-------------------------------------------------------------------------------
+----------
+                        |               Robust
+                     _t |        SHR   std. err.      z    P>|z|     [95% conf.
+>  interval]
+------------------------+------------------------------------------------------
+----------
+           tert_PRS_BMI |
+                     2  |   1.087337    .064026     1.42   0.155     .9688185  
+>   1.220353
+                     3  |   1.130751   .0736608     1.89   0.059     .9952156  
+>   1.284746
+                        |
+tert_PRS_BMI#BMImid_cat |
+                   1 2  |   1.242728    .090095     3.00   0.003     1.078117  
+>   1.432472
+                   1 3  |   1.972457   .3662883     3.66   0.000     1.370686  
+>   2.838422
+                   2 2  |     1.2254   .0787944     3.16   0.002     1.080301  
+>   1.389988
+                   2 3  |    1.71241   .2107797     4.37   0.000     1.345346  
+>   2.179625
+                   3 2  |   1.317692   .0876772     4.15   0.000     1.156581  
+>   1.501245
+                   3 3  |   1.481887   .1466795     3.97   0.000     1.220568  
+>   1.799154
+                        |
+                   educ |   .9309434   .0381437    -1.75   0.081     .8591062  
+>   1.008788
+                    sex |   .6110966   .0232858   -12.92   0.000     .5671198  
+>   .6584836
+                  smoke |   1.226675   .0469603     5.34   0.000     1.138002  
+>   1.322256
+                        |
+                 studyn |
+                SALT-Y  |    .851152   .0555239    -2.47   0.013     .7489969  
+>     .96724
+              TwinGene  |   .9264781   .0440898    -1.60   0.109     .8439713  
+>   1.017051
+-------------------------------------------------------------------------------
+----------
+
+.         /// 1st quartile
+>         lincom 1.tert_PRS_BMI#2.BMImid_cat
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2173089   .0724977     3.00   0.003      .075216    .3594019
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ow = r(estimate)
+
+.                 local se_PRS_c1_ow = r(se)
+
+.                 local Lci_PRS_c1_ow = exp(`m_PRS_c1_ow'-1.96*`se_PRS_c1_ow')
+
+.                 local Uci_PRS_c1_ow = exp(`m_PRS_c1_ow'+1.96*`se_PRS_c1_ow')
+
+.                 local p_PRS_c1_ow = r(p)
+
+.                 local PRS_c1_ow= string(exp(`m_PRS_c1_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ow',"%9.2f")+"-"+string(`Uci_PRS_c1_ow',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c1_ow',"%9.3f")  
+
+.         lincom 1.tert_PRS_BMI#3.BMImid_cat
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |     .67928   .1857016     3.66   0.000     .3153116    1.043248
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c1_ob = r(estimate)
+
+.                 local se_PRS_c1_ob = r(se)
+
+.                 local Lci_PRS_c1_ob = exp(`m_PRS_c1_ob'-1.96*`se_PRS_c1_ob')
+
+.                 local Uci_PRS_c1_ob = exp(`m_PRS_c1_ob'+1.96*`se_PRS_c1_ob')
+
+.                 local p_PRS_c1_ob = r(p)
+
+.                 local PRS_c1_ob= string(exp(`m_PRS_c1_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c1_ob',"%9.2f")+"-"+string(`Uci_PRS_c1_ob',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c1_ob',"%9.3f")    
+
+.         /// 2nd quartile
+> lincom 2.tert_PRS_BMI#2.BMImid_cat
+
+ ( 1)  [eq1]2.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2032674   .0643009     3.16   0.002     .0772399    .3292949
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ow = r(estimate)
+
+.                 local se_PRS_c2_ow = r(se)
+
+.                 local Lci_PRS_c2_ow = exp(`m_PRS_c2_ow'-1.96*`se_PRS_c2_ow')
+
+.                 local Uci_PRS_c2_ow = exp(`m_PRS_c2_ow'+1.96*`se_PRS_c2_ow')
+
+.                 local p_PRS_c2_ow = r(p)
+
+.                 local PRS_c2_ow= string(exp(`m_PRS_c2_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ow',"%9.2f")+"-"+string(`Uci_PRS_c2_ow',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c2_ow',"%9.3f")    
+
+.         lincom 2.tert_PRS_BMI#3.BMImid_cat
+
+ ( 1)  [eq1]2.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .537902   .1230895     4.37   0.000     .2966511    .7791529
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c2_ob = r(estimate)
+
+.                 local se_PRS_c2_ob = r(se)
+
+.                 local Lci_PRS_c2_ob = exp(`m_PRS_c2_ob'-1.96*`se_PRS_c2_ob')
+
+.                 local Uci_PRS_c2_ob = exp(`m_PRS_c2_ob'+1.96*`se_PRS_c2_ob')
+
+.                 local p_PRS_c2_ob = r(p)
+
+.                 local PRS_c2_ob= string(exp(`m_PRS_c2_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c2_ob',"%9.2f")+"-"+string(`Uci_PRS_c2_ob',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c2_ob',"%9.3f")    
+
+.         /// 3rd quartile
+>         lincom 3.tert_PRS_BMI#2.BMImid_cat
+
+ ( 1)  [eq1]3.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2758816   .0665385     4.15   0.000     .1454685    .4062946
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ow = r(estimate)
+
+.                 local se_PRS_c3_ow = r(se)
+
+.                 local Lci_PRS_c3_ow = exp(`m_PRS_c3_ow'-1.96*`se_PRS_c3_ow')
+
+.                 local Uci_PRS_c3_ow = exp(`m_PRS_c3_ow'+1.96*`se_PRS_c3_ow')
+
+.                 local p_PRS_c3_ow = r(p)
+
+.                 local PRS_c3_ow= string(exp(`m_PRS_c3_ow'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ow',"%9.2f")+"-"+string(`Uci_PRS_c3_ow',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c3_ow',"%9.3f")    
+
+.         lincom 3.tert_PRS_BMI#3.BMImid_cat
+
+ ( 1)  [eq1]3.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .3933163   .0989816     3.97   0.000     .1993159    .5873166
+------------------------------------------------------------------------------
+
+.                 local m_PRS_c3_ob = r(estimate)
+
+.                 local se_PRS_c3_ob = r(se)
+
+.                 local Lci_PRS_c3_ob = exp(`m_PRS_c3_ob'-1.96*`se_PRS_c3_ob')
+
+.                 local Uci_PRS_c3_ob = exp(`m_PRS_c3_ob'+1.96*`se_PRS_c3_ob')
+
+.                 local p_PRS_c3_ob = r(p)
+
+.                 local PRS_c3_ob= string(exp(`m_PRS_c3_ob'),"%9.2f")+" ("+stri
+> ng(`Lci_PRS_c3_ob',"%9.2f")+"-"+string(`Uci_PRS_c3_ob',"%9.2f")+")"+", p="+st
+> ring(`p_PRS_c3_ob',"%9.3f")   
+
+.                 
+.         post coxreg_cvd ("All") ("`BMIind_ow'") ("`BMIind_ob'") ("`PRSind'") 
+> ("`BMIjnt_ow'") ("`BMIjnt_ob'") ("`PRSjnt'") ///
+>                                         ("`BMIint_ow'") ("`BMIint_ob'") ("`PR
+> Sint'") ("`BMI_PRSint_ow'") ("`BMI_PRSint_ob'") ///
+>                                         ("`PRS_c1_ow'") ("`PRS_c2_ow'")  ("`P
+> RS_c3_ow'") ("`PRS_c1_ob'") ("`PRS_c2_ob'") ("`PRS_c3_ob'")
+
+.                                 
+. ///// Sex-stratified
+>         foreach i of num 1/2 {
+  2.         set more off
+  3.         // BMI, categorical
+.         stcrreg i.BMImid_cat educ smoke i.studyn if(sex==`i'), compete(crstat
+> us==2) vce(cluster pairid) 
+  4.         lincom 2.BMImid_cat
+  5.                 local m_BMIind_ow = r(estimate)
+  6.                 local se_BMIind_ow = r(se)
+  7.                 local Lci_BMIind_ow = exp(`m_BMIind_ow'-1.96*`se_BMIind_ow
+> ')
+  8.                 local Uci_BMIind_ow = exp(`m_BMIind_ow'+1.96*`se_BMIind_ow
+> ')
+  9.                 local p_BMIind_ow = r(p) 
+ 10.                 local BMIind_ow= string(exp(`m_BMIind_ow'),"%9.2f")+" ("+s
+> tring(`Lci_BMIind_ow',"%9.2f")+"-"+string(`Uci_BMIind_ow',"%9.2f")+")"+", p="
+> +string(`p_BMIind_ow',"%9.3f")
+ 11.         lincom 3.BMImid_cat
+ 12.                 local m_BMIind_ob = r(estimate)
+ 13.                 local se_BMIind_ob = r(se)
+ 14.                 local Lci_BMIind_ob = exp(`m_BMIind_ob'-1.96*`se_BMIind_ob
+> ')
+ 15.                 local Uci_BMIind_ob = exp(`m_BMIind_ob'+1.96*`se_BMIind_ob
+> ')
+ 16.                 local p_BMIind_ob = r(p)
+ 17.                 local BMIind_ob= string(exp(`m_BMIind_ob'),"%9.2f")+" ("+s
+> tring(`Lci_BMIind_ob',"%9.2f")+"-"+string(`Uci_BMIind_ob',"%9.2f")+")"+", p="
+> +string(`p_BMIind_ob',"%9.3f")
+ 18.                 
+.         // PRSbmi model
+.         stcrreg z_PRS_BMI_PCadj educ smoke i.studyn if(sex==`i'), compete(crs
+> tatus==2) vce(cluster pairid) 
+ 19.         lincom z_PRS_BMI_PCadj 
+ 20.                 local m_PRSind = r(estimate)
+ 21.                 local se_PRSind = r(se)
+ 22.                 local Lci_PRSind = exp(`m_PRSind'-1.96*`se_PRSind')
+ 23.                 local Uci_PRSind = exp(`m_PRSind'+1.96*`se_PRSind')
+ 24.                 local p_PRSind = r(p)
+ 25.                 local PRSind= string(exp(`m_PRSind'),"%9.2f")+" ("+string(
+> `Lci_PRSind',"%9.2f")+"-"+string(`Uci_PRSind',"%9.2f")+")"+", p="+string(`p_P
+> RSind',"%9.3f")
+ 26. 
+.         // BMI + PRS model
+.         stcrreg i.BMImid_cat z_PRS_BMI_PCadj educ smoke i.studyn if(sex==`i')
+> , compete(crstatus==2) vce(cluster pairid) 
+ 27.         lincom 2.BMImid_cat
+ 28.                 local m_BMIjnt_ow = r(estimate)
+ 29.                 local se_BMIjnt_ow = r(se)
+ 30.                 local Lci_BMIjnt_ow = exp(`m_BMIjnt_ow'-1.96*`se_BMIjnt_ow
+> ')
+ 31.                 local Uci_BMIjnt_ow = exp(`m_BMIjnt_ow'+1.96*`se_BMIjnt_ow
+> ')
+ 32.                 local p_BMIjnt_ow = r(p)
+ 33.                 local BMIjnt_ow= string(exp(`m_BMIjnt_ow'),"%9.2f")+" ("+s
+> tring(`Lci_BMIjnt_ow',"%9.2f")+"-"+string(`Uci_BMIjnt_ow',"%9.2f")+")"+", p="
+> +string(`p_BMIjnt_ow',"%9.3f") 
+ 34.         lincom 3.BMImid_cat
+ 35.                 local m_BMIjnt_ob = r(estimate)
+ 36.                 local se_BMIjnt_ob = r(se)
+ 37.                 local Lci_BMIjnt_ob = exp(`m_BMIjnt_ob'-1.96*`se_BMIjnt_ob
+> ')
+ 38.                 local Uci_BMIjnt_ob = exp(`m_BMIjnt_ob'+1.96*`se_BMIjnt_ob
+> ')
+ 39.                 local p_BMIjnt_ob = r(p)
+ 40.                 local BMIjnt_ob= string(exp(`m_BMIjnt_ob'),"%9.2f")+" ("+s
+> tring(`Lci_BMIjnt_ob',"%9.2f")+"-"+string(`Uci_BMIjnt_ob',"%9.2f")+")"+", p="
+> +string(`p_BMIjnt_ob',"%9.3f") 
+ 41.         lincom z_PRS_BMI_PCadj 
+ 42.                 local m_PRSjnt = r(estimate)
+ 43.                 local se_PRSjnt = r(se)
+ 44.                 local Lci_PRSjnt = exp(`m_PRSjnt'-1.96*`se_PRSjnt')
+ 45.                 local Uci_PRSjnt = exp(`m_PRSjnt'+1.96*`se_PRSjnt')
+ 46.                 local p_PRSjnt = r(p)
+ 47.                 local PRSjnt= string(exp(`m_PRSjnt'),"%9.2f")+" ("+string(
+> `Lci_PRSjnt',"%9.2f")+"-"+string(`Uci_PRSjnt',"%9.2f")+")"+", p="+string(`p_P
+> RSjnt',"%9.3f") 
+ 48.                 
+.         // Interaction model
+.         stcrreg i.BMImid_cat##c.z_PRS_BMI_PCadj educ smoke i.studyn if(sex==`
+> i'), compete(crstatus==2) vce(cluster pairid)
+ 49.         lincom 2.BMImid_cat
+ 50.                 local m_BMIint_ow = r(estimate)
+ 51.                 local se_BMIint_ow = r(se)
+ 52.                 local Lci_BMIint_ow = exp(`m_BMIint_ow'-1.96*`se_BMIint_ow
+> ')
+ 53.                 local Uci_BMIint_ow = exp(`m_BMIint_ow'+1.96*`se_BMIint_ow
+> ')
+ 54.                 local p_BMIint_ow = r(p)
+ 55.                 local BMIint_ow= string(exp(`m_BMIint_ow'),"%9.2f")+" ("+s
+> tring(`Lci_BMIint_ow',"%9.2f")+"-"+string(`Uci_BMIint_ow',"%9.2f")+")"+", p="
+> +string(`p_BMIint_ow',"%9.3f")  
+ 56.         lincom 3.BMImid_cat
+ 57.                 local m_BMIint_ob = r(estimate)
+ 58.                 local se_BMIint_ob = r(se)
+ 59.                 local Lci_BMIint_ob = exp(`m_BMIint_ob'-1.96*`se_BMIint_ob
+> ')
+ 60.                 local Uci_BMIint_ob = exp(`m_BMIint_ob'+1.96*`se_BMIint_ob
+> ')
+ 61.                 local p_BMIint_ob = r(p)
+ 62.                 local BMIint_ob= string(exp(`m_BMIint_ob'),"%9.2f")+" ("+s
+> tring(`Lci_BMIint_ob',"%9.2f")+"-"+string(`Uci_BMIint_ob',"%9.2f")+")"+", p="
+> +string(`p_BMIint_ob',"%9.3f")  
+ 63.         lincom z_PRS_BMI_PCadj 
+ 64.                 local m_PRSint = r(estimate)
+ 65.                 local se_PRSint = r(se)
+ 66.                 local Lci_PRSint = exp(`m_PRSint'-1.96*`se_PRSint')
+ 67.                 local Uci_PRSint = exp(`m_PRSint'+1.96*`se_PRSint')
+ 68.                 local p_PRSint = r(p)
+ 69.                 local PRSint= string(exp(`m_PRSint'),"%9.2f")+" ("+string(
+> `Lci_PRSint',"%9.2f")+"-"+string(`Uci_PRSint',"%9.2f")+")"+", p="+string(`p_P
+> RSint',"%9.3f")   
+ 70.         lincom 2.BMImid_cat#z_PRS_BMI_PCadj
+ 71.                 local m_BMI_PRSint_ow = r(estimate)
+ 72.                 local se_BMI_PRSint_ow = r(se)
+ 73.                 local Lci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'-1.96*`se_B
+> MI_PRSint_ow')
+ 74.                 local Uci_BMI_PRSint_ow = exp(`m_BMI_PRSint_ow'+1.96*`se_B
+> MI_PRSint_ow')
+ 75.                 local p_BMI_PRSint_ow = r(p)
+ 76.                 local BMI_PRSint_ow= string(exp(`m_BMI_PRSint_ow'),"%9.2f"
+> )+" ("+string(`Lci_BMI_PRSint_ow',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ow',"%9
+> .2f")+")"+", p="+string(`p_BMI_PRSint_ow',"%9.3f")   
+ 77.         lincom 3.BMImid_cat#z_PRS_BMI_PCadj
+ 78.                 local m_BMI_PRSint_ob = r(estimate)
+ 79.                 local se_BMI_PRSint_ob = r(se)
+ 80.                 local Lci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'-1.96*`se_B
+> MI_PRSint_ob')
+ 81.                 local Uci_BMI_PRSint_ob = exp(`m_BMI_PRSint_ob'+1.96*`se_B
+> MI_PRSint_ob')
+ 82.                 local p_BMI_PRSint_ob = r(p)
+ 83.                 local BMI_PRSint_ob= string(exp(`m_BMI_PRSint_ob'),"%9.2f"
+> )+" ("+string(`Lci_BMI_PRSint_ob',"%9.2f")+"-"+string(`Uci_BMI_PRSint_ob',"%9
+> .2f")+")"+", p="+string(`p_BMI_PRSint_ob',"%9.3f")   
+ 84.         
+.         /// By tertiles of PRSbmi
+>         stcrreg i.tert_PRS_BMI i.tert_PRS_BMI#i.BMImid_cat educ smoke i.study
+> n if(sex==`i'), compete(crstatus==2) vce(cluster pairid) 
+ 85.         /// 1st quartile
+>         lincom 1.tert_PRS_BMI#2.BMImid_cat
+ 86.                 local m_PRS_c1_ow = r(estimate)
+ 87.                 local se_PRS_c1_ow = r(se)
+ 88.                 local Lci_PRS_c1_ow = exp(`m_PRS_c1_ow'-1.96*`se_PRS_c1_ow
+> ')
+ 89.                 local Uci_PRS_c1_ow = exp(`m_PRS_c1_ow'+1.96*`se_PRS_c1_ow
+> ')
+ 90.                 local p_PRS_c1_ow = r(p)
+ 91.                 local PRS_c1_ow= string(exp(`m_PRS_c1_ow'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c1_ow',"%9.2f")+"-"+string(`Uci_PRS_c1_ow',"%9.2f")+")"+", p="
+> +string(`p_PRS_c1_ow',"%9.3f")  
+ 92.         lincom 1.tert_PRS_BMI#3.BMImid_cat
+ 93.                 local m_PRS_c1_ob = r(estimate)
+ 94.                 local se_PRS_c1_ob = r(se)
+ 95.                 local Lci_PRS_c1_ob = exp(`m_PRS_c1_ob'-1.96*`se_PRS_c1_ob
+> ')
+ 96.                 local Uci_PRS_c1_ob = exp(`m_PRS_c1_ob'+1.96*`se_PRS_c1_ob
+> ')
+ 97.                 local p_PRS_c1_ob = r(p)
+ 98.                 local PRS_c1_ob= string(exp(`m_PRS_c1_ob'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c1_ob',"%9.2f")+"-"+string(`Uci_PRS_c1_ob',"%9.2f")+")"+", p="
+> +string(`p_PRS_c1_ob',"%9.3f")    
+ 99.         /// 2nd quartile
+> lincom 2.tert_PRS_BMI#2.BMImid_cat
+100.                 local m_PRS_c2_ow = r(estimate)
+101.                 local se_PRS_c2_ow = r(se)
+102.                 local Lci_PRS_c2_ow = exp(`m_PRS_c2_ow'-1.96*`se_PRS_c2_ow
+> ')
+103.                 local Uci_PRS_c2_ow = exp(`m_PRS_c2_ow'+1.96*`se_PRS_c2_ow
+> ')
+104.                 local p_PRS_c2_ow = r(p)
+105.                 local PRS_c2_ow= string(exp(`m_PRS_c2_ow'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c2_ow',"%9.2f")+"-"+string(`Uci_PRS_c2_ow',"%9.2f")+")"+", p="
+> +string(`p_PRS_c2_ow',"%9.3f")    
+106.         lincom 2.tert_PRS_BMI#3.BMImid_cat
+107.                 local m_PRS_c2_ob = r(estimate)
+108.                 local se_PRS_c2_ob = r(se)
+109.                 local Lci_PRS_c2_ob = exp(`m_PRS_c2_ob'-1.96*`se_PRS_c2_ob
+> ')
+110.                 local Uci_PRS_c2_ob = exp(`m_PRS_c2_ob'+1.96*`se_PRS_c2_ob
+> ')
+111.                 local p_PRS_c2_ob = r(p)
+112.                 local PRS_c2_ob= string(exp(`m_PRS_c2_ob'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c2_ob',"%9.2f")+"-"+string(`Uci_PRS_c2_ob',"%9.2f")+")"+", p="
+> +string(`p_PRS_c2_ob',"%9.3f")    
+113.         /// 3rd quartile
+>         lincom 3.tert_PRS_BMI#2.BMImid_cat
+114.                 local m_PRS_c3_ow = r(estimate)
+115.                 local se_PRS_c3_ow = r(se)
+116.                 local Lci_PRS_c3_ow = exp(`m_PRS_c3_ow'-1.96*`se_PRS_c3_ow
+> ')
+117.                 local Uci_PRS_c3_ow = exp(`m_PRS_c3_ow'+1.96*`se_PRS_c3_ow
+> ')
+118.                 local p_PRS_c3_ow = r(p)
+119.                 local PRS_c3_ow= string(exp(`m_PRS_c3_ow'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c3_ow',"%9.2f")+"-"+string(`Uci_PRS_c3_ow',"%9.2f")+")"+", p="
+> +string(`p_PRS_c3_ow',"%9.3f")    
+120.         lincom 3.tert_PRS_BMI#3.BMImid_cat
+121.                 local m_PRS_c3_ob = r(estimate)
+122.                 local se_PRS_c3_ob = r(se)
+123.                 local Lci_PRS_c3_ob = exp(`m_PRS_c3_ob'-1.96*`se_PRS_c3_ob
+> ')
+124.                 local Uci_PRS_c3_ob = exp(`m_PRS_c3_ob'+1.96*`se_PRS_c3_ob
+> ')
+125.                 local p_PRS_c3_ob = r(p)
+126.                 local PRS_c3_ob= string(exp(`m_PRS_c3_ob'),"%9.2f")+" ("+s
+> tring(`Lci_PRS_c3_ob',"%9.2f")+"-"+string(`Uci_PRS_c3_ob',"%9.2f")+")"+", p="
+> +string(`p_PRS_c3_ob',"%9.3f")   
+127.                 
+.         post coxreg_cvd ("`i'") ("`BMIind_ow'") ("`BMIind_ob'") ("`PRSind'") 
+> ("`BMIjnt_ow'") ("`BMIjnt_ob'") ("`PRSjnt'") ///
+>                                         ("`BMIint_ow'") ("`BMIint_ob'") ("`PR
+> Sint'") ("`BMI_PRSint_ow'") ("`BMI_PRSint_ob'") ///
+>                                         ("`PRS_c1_ow'") ("`PRS_c2_ow'")  ("`P
+> RS_c3_ow'") ("`PRS_c1_ob'") ("`PRS_c2_ob'") ("`PRS_c3_ob'")
+128.         }                
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood =   -14286.3  
+Iteration 1:   log pseudolikelihood = -14284.344  
+Iteration 2:   log pseudolikelihood = -14284.343  
+
+Competing-risks regression                        No. of obs      =      7,293
+                                                  No. of subjects =      7,293
+Failure event:   crstatus == 1                    No. failed      =      1,802
+Competing event: crstatus == 2                    No. competing   =        554
+                                                  No. censored    =      4,937
+
+                                                  Wald chi2(6)    =      66.37
+Log pseudolikelihood = -14284.343                 Prob > chi2     =     0.0000
+
+                             (Std. err. adjusted for 5,610 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t |        SHR   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.292712   .0632814     5.24   0.000     1.174447    1.422886
+          3  |    1.50758   .1471123     4.21   0.000     1.245141    1.825333
+             |
+        educ |   .9147458   .0489395    -1.67   0.096      .823684    1.015875
+       smoke |   1.255449   .0653443     4.37   0.000     1.133693    1.390282
+             |
+      studyn |
+     SALT-Y  |   .8795216   .0748963    -1.51   0.132     .7443237    1.039277
+   TwinGene  |    .916854   .0605183    -1.32   0.188     .8055924    1.043482
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2567423   .0489524     5.24   0.000     .1607973    .3526872
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4105057   .0975818     4.21   0.000     .2192489    .6017625
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -14295.206  
+Iteration 1:   log pseudolikelihood = -14293.714  
+Iteration 2:   log pseudolikelihood = -14293.713  
+
+Competing-risks regression                        No. of obs      =      7,293
+                                                  No. of subjects =      7,293
+Failure event:   crstatus == 1                    No. failed      =      1,802
+Competing event: crstatus == 2                    No. competing   =        554
+                                                  No. censored    =      4,937
+
+                                                  Wald chi2(5)    =      45.83
+Log pseudolikelihood = -14293.713                 Prob > chi2     =     0.0000
+
+                                (Std. err. adjusted for 5,610 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+z_PRS_BMI_PCadj |   1.106816   .0268854     4.18   0.000     1.055356    1.1607
+> 84
+           educ |   .9133487   .0488826    -1.69   0.090     .8223944    1.0143
+> 62
+          smoke |   1.255584   .0654159     4.37   0.000     1.133701    1.3905
+> 72
+                |
+         studyn |
+        SALT-Y  |     .89091   .0750735    -1.37   0.170     .7552773      1.05
+> 09
+      TwinGene  |   .9173343   .0596104    -1.33   0.184     .8076342    1.0419
+> 35
+-------------------------------------------------------------------------------
+--
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .101487   .0242907     4.18   0.000     .0538781     .149096
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -14283.327  
+Iteration 1:   log pseudolikelihood = -14281.307  
+Iteration 2:   log pseudolikelihood = -14281.306  
+
+Competing-risks regression                        No. of obs      =      7,293
+                                                  No. of subjects =      7,293
+Failure event:   crstatus == 1                    No. failed      =      1,802
+Competing event: crstatus == 2                    No. competing   =        554
+                                                  No. censored    =      4,937
+
+                                                  Wald chi2(7)    =      71.46
+Log pseudolikelihood = -14281.306                 Prob > chi2     =     0.0000
+
+                                (Std. err. adjusted for 5,610 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+     BMImid_cat |
+             2  |   1.252283   .0631573     4.46   0.000     1.134418    1.3823
+> 94
+             3  |   1.413906   .1435868     3.41   0.001     1.158719    1.7252
+> 93
+                |
+z_PRS_BMI_PCadj |   1.064202   .0274148     2.42   0.016     1.011804    1.1193
+> 13
+           educ |   .9219645   .0493902    -1.52   0.129     .8300701    1.0240
+> 32
+          smoke |   1.250994   .0651925     4.30   0.000     1.129528    1.3855
+> 22
+                |
+         studyn |
+        SALT-Y  |   .8760686   .0743731    -1.56   0.119     .7417816    1.0346
+> 66
+      TwinGene  |   .9122524   .0600115    -1.40   0.163     .8018991    1.0377
+> 92
+-------------------------------------------------------------------------------
+--
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2249684   .0504337     4.46   0.000     .1261202    .3238167
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .346356   .1015533     3.41   0.001     .1473153    .5453968
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .062225   .0257609     2.42   0.016     .0117346    .1127155
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -14282.459  
+Iteration 1:   log pseudolikelihood =  -14280.35  
+Iteration 2:   log pseudolikelihood = -14280.349  
+
+Competing-risks regression                        No. of obs      =      7,293
+                                                  No. of subjects =      7,293
+Failure event:   crstatus == 1                    No. failed      =      1,802
+Competing event: crstatus == 2                    No. competing   =        554
+                                                  No. censored    =      4,937
+
+                                                  Wald chi2(9)    =      73.43
+Log pseudolikelihood = -14280.349                 Prob > chi2     =     0.0000
+
+                                             (Std. err. adjusted for 5,610 clus
+> ters in pairid)
+-------------------------------------------------------------------------------
+---------------
+                             |               Robust
+                          _t |        SHR   std. err.      z    P>|z|     [95% 
+> con                                                                          
+>    f. interval]
+-----------------------------+-------------------------------------------------
+---------------
+                  BMImid_cat |
+                          2  |   1.246042   .0630151     4.35   0.000     1.128
+> 458                                                                          
+>        1.375877
+                          3  |   1.539219   .1780584     3.73   0.000     1.226
+> 966                                                                          
+>        1.930937
+                             |
+             z_PRS_BMI_PCadj |   1.071854   .0395193     1.88   0.060     .9971
+> 298                                                                          
+>        1.152177
+                             |
+BMImid_cat#c.z_PRS_BMI_PCadj |
+                          2  |   1.005626   .0528163     0.11   0.915     .9072
+> 578                                                                          
+>         1.11466
+                          3  |   .8791989   .0922558    -1.23   0.220     .7157
+> 628                                                                          
+>        1.079954
+                             |
+                        educ |   .9224084    .049451    -1.51   0.132     .8304
+> 045                                                                          
+>        1.024606
+                       smoke |    1.24974   .0651043     4.28   0.000     1.128
+> 436                                                                          
+>        1.384083
+                             |
+                      studyn |
+                     SALT-Y  |   .8753522   .0742883    -1.57   0.117     .7412
+> 149                                                                          
+>        1.033764
+                   TwinGene  |   .9124946   .0600068    -1.39   0.164     .8021
+> 474                                                                          
+>        1.038022
+-------------------------------------------------------------------------------
+---------------
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2199719   .0505722     4.35   0.000     .1208522    .3190916
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4312748    .115681     3.73   0.000     .2045441    .6580055
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0693895     .03687     1.88   0.060    -.0028744    .1416534
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0056102   .0525208     0.11   0.915    -.0973286     .108549
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.1287442   .1049317    -1.23   0.220    -.3344065    .0769181
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -14281.859  
+Iteration 1:   log pseudolikelihood =  -14279.71  
+Iteration 2:   log pseudolikelihood = -14279.709  
+
+Competing-risks regression                        No. of obs      =      7,293
+                                                  No. of subjects =      7,293
+Failure event:   crstatus == 1                    No. failed      =      1,802
+Competing event: crstatus == 2                    No. competing   =        554
+                                                  No. censored    =      4,937
+
+                                                  Wald chi2(12)   =      75.34
+Log pseudolikelihood = -14279.709                 Prob > chi2     =     0.0000
+
+                                        (Std. err. adjusted for 5,610 clusters 
+> in pairid)
+-------------------------------------------------------------------------------
+----------
+                        |               Robust
+                     _t |        SHR   std. err.      z    P>|z|     [95% conf.
+>  interval]
+------------------------+------------------------------------------------------
+----------
+           tert_PRS_BMI |
+                     2  |   1.129965   .0912923     1.51   0.130     .9644833  
+>    1.32384
+                     3  |   1.132412   .1038617     1.36   0.175     .9460945  
+>   1.355421
+                        |
+tert_PRS_BMI#BMImid_cat |
+                   1 2  |   1.276726   .1152949     2.71   0.007      1.06962  
+>   1.523932
+                   1 3  |   1.797729   .4711522     2.24   0.025     1.075572  
+>   3.004753
+                   2 2  |   1.159288   .0953672     1.80   0.072     .9866622  
+>   1.362116
+                   2 3  |   1.572234   .2672601     2.66   0.008      1.12674  
+>    2.19387
+                   3 2  |   1.343768    .121539     3.27   0.001     1.125475  
+>   1.604399
+                   3 3  |   1.337708   .1897632     2.05   0.040     1.013007  
+>   1.766486
+                        |
+                   educ |    .918823   .0492434    -1.58   0.114     .8272038  
+>    1.02059
+                  smoke |   1.248703   .0651017     4.26   0.000     1.127408  
+>   1.383047
+                        |
+                 studyn |
+                SALT-Y  |    .878914    .074569    -1.52   0.128     .7442667  
+>   1.037921
+              TwinGene  |   .9176532    .060454    -1.30   0.192     .8064963  
+>    1.04413
+-------------------------------------------------------------------------------
+----------
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2442987   .0903052     2.71   0.007     .0673038    .4212936
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5865241   .2620819     2.24   0.025     .0728529    1.100195
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1478061   .0822636     1.80   0.072    -.0134276    .3090397
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .4524975   .1699875     2.66   0.008     .1193281    .7856669
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2954774   .0904465     3.27   0.001     .1182056    .4727492
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2909579   .1418569     2.05   0.040     .0129234    .5689923
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -10329.847  
+Iteration 1:   log pseudolikelihood = -10327.052  
+Iteration 2:   log pseudolikelihood = -10327.051  
+Iteration 3:   log pseudolikelihood = -10327.051  
+
+Competing-risks regression                        No. of obs      =      8,493
+                                                  No. of subjects =      8,493
+Failure event:   crstatus == 1                    No. failed      =      1,321
+Competing event: crstatus == 2                    No. competing   =        597
+                                                  No. censored    =      6,575
+
+                                                  Wald chi2(6)    =      70.41
+Log pseudolikelihood = -10327.051                 Prob > chi2     =     0.0000
+
+                             (Std. err. adjusted for 6,332 clusters in pairid)
+------------------------------------------------------------------------------
+             |               Robust
+          _t |        SHR   std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  BMImid_cat |
+          2  |   1.266517   .0770576     3.88   0.000     1.124144    1.426921
+          3  |   1.852238   .1776224     6.43   0.000     1.534864    2.235238
+             |
+        educ |   .9551254    .058751    -0.75   0.455      .846646    1.077504
+       smoke |   1.292385   .0734742     4.51   0.000     1.156111    1.444721
+             |
+      studyn |
+     SALT-Y  |   .8224705    .085793    -1.87   0.061     .6703944    1.009044
+   TwinGene  |   .9844778   .0677601    -0.23   0.820     .8602389     1.12666
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2362703   .0608422     3.88   0.000     .1170218    .3555187
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .6163949   .0958961     6.43   0.000      .428442    .8043477
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -10345.637  
+Iteration 1:   log pseudolikelihood = -10342.879  
+Iteration 2:   log pseudolikelihood = -10342.878  
+
+Competing-risks regression                        No. of obs      =      8,493
+                                                  No. of subjects =      8,493
+Failure event:   crstatus == 1                    No. failed      =      1,321
+Competing event: crstatus == 2                    No. competing   =        597
+                                                  No. censored    =      6,575
+
+                                                  Wald chi2(5)    =      36.03
+Log pseudolikelihood = -10342.878                 Prob > chi2     =     0.0000
+
+                                (Std. err. adjusted for 6,332 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+z_PRS_BMI_PCadj |   1.108217   .0310655     3.67   0.000     1.048972    1.1708
+> 08
+           educ |   .9368016    .056917    -1.07   0.283     .8316323    1.0552
+> 71
+          smoke |   1.240962   .0709774     3.77   0.000     1.109363    1.3881
+> 73
+                |
+         studyn |
+        SALT-Y  |   .8267995   .0863494    -1.82   0.069     .6737555    1.0146
+> 08
+      TwinGene  |   .9738337   .0668402    -0.39   0.699     .8512588    1.1140
+> 59
+-------------------------------------------------------------------------------
+--
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1027525    .028032     3.67   0.000     .0478108    .1576942
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -10328.355  
+Iteration 1:   log pseudolikelihood =  -10325.45  
+Iteration 2:   log pseudolikelihood = -10325.449  
+Iteration 3:   log pseudolikelihood = -10325.449  
+
+Competing-risks regression                        No. of obs      =      8,493
+                                                  No. of subjects =      8,493
+Failure event:   crstatus == 1                    No. failed      =      1,321
+Competing event: crstatus == 2                    No. competing   =        597
+                                                  No. censored    =      6,575
+
+                                                  Wald chi2(7)    =      74.21
+Log pseudolikelihood = -10325.449                 Prob > chi2     =     0.0000
+
+                                (Std. err. adjusted for 6,332 clusters in pairi
+> d)
+-------------------------------------------------------------------------------
+--
+                |               Robust
+             _t |        SHR   std. err.      z    P>|z|     [95% conf. interva
+> l]
+----------------+--------------------------------------------------------------
+--
+     BMImid_cat |
+             2  |   1.238464   .0768287     3.45   0.001     1.096677    1.3985
+> 83
+             3  |   1.760425   .1768129     5.63   0.000     1.445856    2.1434
+> 34
+                |
+z_PRS_BMI_PCadj |   1.053357   .0307273     1.78   0.075     .9948217    1.1153
+> 36
+           educ |   .9580385    .058824    -0.70   0.485     .8494127    1.0805
+> 56
+          smoke |   1.276058   .0732868     4.24   0.000     1.140207    1.4280
+> 94
+                |
+         studyn |
+        SALT-Y  |   .8236336   .0858956    -1.86   0.063     .6713723    1.0104
+> 26
+      TwinGene  |    .984476   .0676974    -0.23   0.820     .8603444    1.1265
+> 18
+-------------------------------------------------------------------------------
+--
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2138722   .0620355     3.45   0.001     .0922849    .3354595
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5655554   .1004376     5.63   0.000     .3687013    .7624094
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .0519821   .0291708     1.78   0.075    -.0051917    .1091558
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -10326.957  
+Iteration 1:   log pseudolikelihood = -10324.004  
+Iteration 2:   log pseudolikelihood = -10324.002  
+Iteration 3:   log pseudolikelihood = -10324.002  
+
+Competing-risks regression                        No. of obs      =      8,493
+                                                  No. of subjects =      8,493
+Failure event:   crstatus == 1                    No. failed      =      1,321
+Competing event: crstatus == 2                    No. competing   =        597
+                                                  No. censored    =      6,575
+
+                                                  Wald chi2(9)    =      77.42
+Log pseudolikelihood = -10324.002                 Prob > chi2     =     0.0000
+
+                                             (Std. err. adjusted for 6,332 clus
+> ters in pairid)
+-------------------------------------------------------------------------------
+---------------
+                             |               Robust
+                          _t |        SHR   std. err.      z    P>|z|     [95% 
+> con                                                                          
+>    f. interval]
+-----------------------------+-------------------------------------------------
+---------------
+                  BMImid_cat |
+                          2  |   1.227977   .0774744     3.26   0.001     1.085
+> 143                                                                          
+>        1.389612
+                          3  |   1.954609   .2200198     5.95   0.000     1.567
+> 634                                                                          
+>        2.437109
+                             |
+             z_PRS_BMI_PCadj |   1.068421   .0405312     1.74   0.081     .9918
+> 629                                                                          
+>        1.150889
+                             |
+BMImid_cat#c.z_PRS_BMI_PCadj |
+                          2  |   1.008451   .0646724     0.13   0.896     .8893
+> 386                                                                          
+>        1.143518
+                          3  |   .8557324   .0838808    -1.59   0.112     .7061
+> 571                                                                          
+>         1.03699
+                             |
+                        educ |    .957098   .0587807    -0.71   0.475     .8485
+> 538                                                                          
+>        1.079527
+                       smoke |   1.271441   .0730811     4.18   0.000     1.135
+> 979                                                                          
+>        1.423057
+                             |
+                      studyn |
+                     SALT-Y  |   .8279756   .0864921    -1.81   0.071     .6746
+> 821                                                                          
+>        1.016099
+                   TwinGene  |   .9891869   .0681513    -0.16   0.875     .8642
+> 387                                                                          
+>          1.1322
+-------------------------------------------------------------------------------
+---------------
+
+ ( 1)  [eq1]2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2053682   .0630911     3.26   0.001      .081712    .3290244
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |     .67019   .1125646     5.95   0.000     .4495674    .8908126
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .066182   .0379356     1.74   0.081    -.0081704    .1405343
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |    .008416   .0641304     0.13   0.896    -.1172773    .1341092
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.BMImid_cat#c.z_PRS_BMI_PCadj = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |  -.1557976   .0980222    -1.59   0.112    -.3479176    .0363224
+------------------------------------------------------------------------------
+
+         Failure _d: crstatus==1
+   Analysis time _t: crtime
+  Enter on or after: time BMImid_age
+        ID variable: twinnr
+
+Iteration 0:   log pseudolikelihood = -10327.279  
+Iteration 1:   log pseudolikelihood = -10324.377  
+Iteration 2:   log pseudolikelihood = -10324.375  
+Iteration 3:   log pseudolikelihood = -10324.375  
+
+Competing-risks regression                        No. of obs      =      8,493
+                                                  No. of subjects =      8,493
+Failure event:   crstatus == 1                    No. failed      =      1,321
+Competing event: crstatus == 2                    No. competing   =        597
+                                                  No. censored    =      6,575
+
+                                                  Wald chi2(12)   =      76.67
+Log pseudolikelihood = -10324.375                 Prob > chi2     =     0.0000
+
+                                        (Std. err. adjusted for 6,332 clusters 
+> in pairid)
+-------------------------------------------------------------------------------
+----------
+                        |               Robust
+                     _t |        SHR   std. err.      z    P>|z|     [95% conf.
+>  interval]
+------------------------+------------------------------------------------------
+----------
+           tert_PRS_BMI |
+                     2  |   1.038063   .0879444     0.44   0.659     .8792457  
+>   1.225568
+                     3  |   1.135624   .1042384     1.39   0.166     .9486438  
+>   1.359458
+                        |
+tert_PRS_BMI#BMImid_cat |
+                   1 2  |   1.136586   .1356911     1.07   0.284     .8994602  
+>   1.436227
+                   1 3  |   2.211411   .5693372     3.08   0.002     1.335132  
+>   3.662815
+                   2 2  |   1.328754   .1380451     2.74   0.006     1.083959  
+>   1.628833
+                   2 3  |   1.871265   .3315563     3.54   0.000      1.32226  
+>   2.648218
+                   3 2  |   1.235919    .124369     2.10   0.035     1.014693  
+>   1.505378
+                   3 3  |   1.668134   .2236305     3.82   0.000     1.282681  
+>   2.169418
+                        |
+                   educ |   .9562622   .0587791    -0.73   0.467     .8477265  
+>   1.078694
+                  smoke |   1.274157   .0734414     4.20   0.000     1.138047  
+>   1.426545
+                        |
+                 studyn |
+                SALT-Y  |   .8257397   .0862811    -1.83   0.067     .6728242  
+>   1.013409
+              TwinGene  |   .9881272   .0682225    -0.17   0.863      .863066  
+>    1.13131
+-------------------------------------------------------------------------------
+----------
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .1280294   .1193848     1.07   0.284    -.1059604    .3620193
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]1b.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .7936309   .2574543     3.08   0.002     .2890299    1.298232
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2842418   .1038906     2.74   0.006     .0806199    .4878636
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]2.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .6266148    .177183     3.54   0.000     .2793426     .973887
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.tert_PRS_BMI#2.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .2118151   .1006287     2.10   0.035     .0145865    .4090438
+------------------------------------------------------------------------------
+
+ ( 1)  [eq1]3.tert_PRS_BMI#3.BMImid_cat = 0
+
+------------------------------------------------------------------------------
+          _t | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         (1) |   .5117057   .1340602     3.82   0.000     .2489525     .774459
+------------------------------------------------------------------------------
+
+. 
+. postclose coxreg_cvd
+
+. /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+>                                                                              
+>    ///// SAVING THE LOG/OUTPUT /////
+> /////////////////////////////////////////////////////////////////////////////
+> ///////////////////////////////////
+> 
+. log close
+      name:  <unnamed>
+       log:  P:\Dementia_IK\SfoEpi\GPdisc_CVD\Programs\GOSH\session.smcl
+  log type:  smcl
+ closed on:  28 Jan 2023, 20:28:58
+-------------------------------------------------------------------------------
